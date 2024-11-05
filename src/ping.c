@@ -66,7 +66,7 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 		return NULL;
 	}
 
-	return dst_info;
+	return temp;
 }
 
 struct protoent *get_proto(struct addrinfo *dst_info)
@@ -180,7 +180,7 @@ int verify_ipv4_reply_hdr(struct icmp *reply_hdr, int seq)
 	return -1;
 }
 
-int ping(char *dst)
+int ping(char *dst, int count)
 {
 	int rv = validate_ip(dst);
 	if (rv == -1)
@@ -225,35 +225,40 @@ int ping(char *dst)
 
 	int seq = 1;
 	int sent_bytes;
+	int host_is_up = 0;
 	if (dst_info->ai_family == AF_INET)
 	{
-		struct icmp ipv4_req_hdr = create_ipv4_echo_req_hdr(seq++);
-
-		sent_bytes = send(sfd, &ipv4_req_hdr, sizeof(ipv4_req_hdr), 0);
-		if (sent_bytes == -1)
+		for (int attempt = 0; attempt < count; attempt++)
 		{
-			perror("Send");
-			exit_error(dst_info);
-		}
+			struct icmp ipv4_req_hdr = create_ipv4_echo_req_hdr(seq++);
 
-		struct icmp *reply_hdr = get_ipv4_reply_hdr(sfd, dst_info);
-		if (reply_hdr == NULL)
-		{
-			// continue loop
-			exit_error(dst_info);
-		}
+			sent_bytes = send(sfd, &ipv4_req_hdr, sizeof(ipv4_req_hdr), 0);
+			if (sent_bytes == -1)
+			{
+				perror("Send");
+				exit_error(dst_info);
+			}
 
-		rv = verify_ipv4_reply_hdr(reply_hdr, seq);
-		if (rv == 0)
-		{
-			printf("Host is up\n");
-			// print host is up and break
+			struct icmp *reply_hdr = get_ipv4_reply_hdr(sfd, dst_info);
+			if (reply_hdr == NULL)
+			{
+				continue;
+			}
+
+			rv = verify_ipv4_reply_hdr(reply_hdr, seq);
+			if (rv == 0)
+			{
+				host_is_up = 1;
+				break;
+			}
 		}
-		// else continue
 	}
 
-	printf("OK\n");
 	freeaddrinfo(dst_info);
 	close(sfd);
-	return 0;
+
+	if (host_is_up)
+		return 0;
+
+	return -1;
 }
