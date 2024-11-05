@@ -16,6 +16,12 @@
 
 #define TIMEOUT_SECONDS 2
 
+void exit_error(struct addrinfo *dst)
+{
+	freeaddrinfo(dst);
+	exit(EXIT_FAILURE);
+}
+
 int validate_ip(char *ip)
 {
 	struct in_addr ipv4_dst;
@@ -138,10 +144,40 @@ struct icmp create_ipv4_echo_req_hdr(int seq)
 	return req_hdr;
 }
 
-void exit_error(struct addrinfo *dst)
+struct icmp *get_ipv4_reply_hdr(int sfd, struct addrinfo *dst)
 {
-	freeaddrinfo(dst);
-	exit(EXIT_FAILURE);
+	char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
+	int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
+	if (recv_bytes < 0)
+	{
+		if (errno == EWOULDBLOCK)
+		{
+			return NULL;
+		}
+		else
+		{
+			perror("Recv");
+			exit_error(dst);
+		}
+	}
+	if (recv_bytes == 0)
+	{
+		return NULL;
+	}
+
+	struct icmp *reply_hdr = (struct icmp *)(recvbuf + sizeof(struct ip));
+	return reply_hdr;
+}
+
+int verify_ipv4_reply_hdr(struct icmp *reply_hdr, int seq)
+{
+	if (reply_hdr->icmp_type == ICMP_ECHOREPLY &&
+		ntohs(reply_hdr->icmp_hun.ih_idseq.icd_seq) == seq - 1 &&
+		ntohs(reply_hdr->icmp_hun.ih_idseq.icd_id) == (getpid() & 0xffff))
+	{
+		return 0;
+	}
+	return -1;
 }
 
 int ping(char *dst)
@@ -188,11 +224,36 @@ int ping(char *dst)
 	}
 
 	int seq = 1;
+	int sent_bytes;
 	if (dst_info->ai_family == AF_INET)
 	{
-		struct icmp ipv4_req_hdr = create_ipv4_echo_req_hdr(seq);
+		struct icmp ipv4_req_hdr = create_ipv4_echo_req_hdr(seq++);
+
+		sent_bytes = send(sfd, &ipv4_req_hdr, sizeof(ipv4_req_hdr), 0);
+		if (sent_bytes == -1)
+		{
+			perror("Send");
+			exit_error(dst_info);
+		}
+
+		struct icmp *reply_hdr = get_ipv4_reply_hdr(sfd, dst_info);
+		if (reply_hdr == NULL)
+		{
+			// continue loop
+			exit_error(dst_info);
+		}
+
+		rv = verify_ipv4_reply_hdr(reply_hdr, seq);
+		if (rv == 0)
+		{
+			printf("Host is up\n");
+			// print host is up and break
+		}
+		// else continue
 	}
 
 	printf("OK\n");
+	freeaddrinfo(dst_info);
+	close(sfd);
 	return 0;
 }
