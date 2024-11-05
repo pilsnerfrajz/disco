@@ -61,6 +61,26 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 	return dst_info;
 }
 
+struct protoent *get_proto(struct addrinfo *dst_info)
+{
+	struct protoent *protocol;
+	if (dst_info->ai_family == AF_INET)
+	{
+		protocol = getprotobyname("icmp");
+	}
+	else
+	{
+		protocol = getprotobyname("icmp6");
+	}
+
+	if (protocol == NULL)
+	{
+		return NULL;
+	}
+
+	return protocol;
+}
+
 int ping(char *dst)
 {
 	int rv = validate_ip(dst);
@@ -75,6 +95,13 @@ int ping(char *dst)
 	{
 		fprintf(stderr, "Failed getting destination address info.\n");
 		freeaddrinfo(dst_info);
+		exit(EXIT_FAILURE);
+	}
+
+	struct protoent *protocol = get_proto(dst_info);
+	if (protocol == NULL)
+	{
+		fprintf(stderr, "Could not find a protocol with the given name.\n");
 		exit(EXIT_FAILURE);
 	}
 	printf("OK\n");
