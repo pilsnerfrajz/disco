@@ -32,7 +32,7 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 {
 	struct addrinfo *dst_info;
 	struct addrinfo hints;
-	memset(&hints, 0, sizeof hints);
+	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_RAW;
 	hints.ai_flags = AI_PASSIVE;
@@ -100,6 +100,44 @@ int set_socket_options(int sfd)
 	return 0;
 }
 
+uint16_t calc_checksum(void *hdr, int len)
+{
+	uint16_t *temp = hdr;
+	uint32_t sum = 0;
+
+	/* count 16 bits each iteration */
+	for (sum = 0; len > 1; len -= 2)
+	{
+		sum += *temp++;
+	}
+
+	if (len == 1)
+	{
+		sum += *(uint8_t *)temp;
+	}
+
+	while (sum >> 16)
+	{
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
+
+	return ~sum;
+}
+
+struct icmp create_ipv4_echo_req_hdr(int seq)
+{
+	struct icmp req_hdr;
+	memset(&req_hdr, 0, sizeof(req_hdr));
+	req_hdr.icmp_type = ICMP_ECHO;
+	req_hdr.icmp_code = 0;
+	req_hdr.icmp_cksum = 0;
+	req_hdr.icmp_hun.ih_idseq.icd_id = htons(getpid() & 0xffff);
+	req_hdr.icmp_hun.ih_idseq.icd_seq = htons(seq);
+	req_hdr.icmp_cksum = calc_checksum(&req_hdr, sizeof(req_hdr));
+
+	return req_hdr;
+}
+
 void exit_error(struct addrinfo *dst)
 {
 	freeaddrinfo(dst);
@@ -147,6 +185,12 @@ int ping(char *dst)
 	{
 		perror("Connect");
 		exit_error(dst_info);
+	}
+
+	int seq = 1;
+	if (dst_info->ai_family == AF_INET)
+	{
+		struct icmp ipv4_req_hdr = create_ipv4_echo_req_hdr(seq);
 	}
 
 	printf("OK\n");
