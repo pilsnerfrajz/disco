@@ -14,6 +14,8 @@
 #include <sys/time.h>
 #include <errno.h>
 
+#define TIMEOUT_SECONDS 2
+
 int validate_ip(char *ip)
 {
 	struct in_addr ipv4_dst;
@@ -81,6 +83,29 @@ struct protoent *get_proto(struct addrinfo *dst_info)
 	return protocol;
 }
 
+int set_socket_options(int sfd)
+{
+	struct timeval timeout = {
+		.tv_sec = TIMEOUT_SECONDS,
+		.tv_usec = 0,
+	};
+
+	int rv = setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+	if (rv == -1)
+	{
+		perror("Setsockopt");
+		return -1;
+	}
+
+	return 0;
+}
+
+void exit_error(struct addrinfo *dst)
+{
+	freeaddrinfo(dst);
+	exit(EXIT_FAILURE);
+}
+
 int ping(char *dst)
 {
 	int rv = validate_ip(dst);
@@ -93,9 +118,8 @@ int ping(char *dst)
 	struct addrinfo *dst_info = get_dst_addr_struct(dst);
 	if (dst_info == NULL)
 	{
-		fprintf(stderr, "Failed getting destination address info.\n");
-		freeaddrinfo(dst_info);
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "Failed getting target address info.\n");
+		exit_error(dst_info);
 	}
 
 	struct protoent *protocol = get_proto(dst_info);
@@ -104,6 +128,27 @@ int ping(char *dst)
 		fprintf(stderr, "Could not find a protocol with the given name.\n");
 		exit(EXIT_FAILURE);
 	}
+
+	int sfd = socket(dst_info->ai_family, SOCK_RAW, protocol->p_proto);
+	if (sfd == -1)
+	{
+		perror("Socket");
+		exit_error(dst_info);
+	}
+
+	rv = set_socket_options(sfd);
+	if (rv == -1)
+	{
+		exit_error(dst_info);
+	}
+
+	rv = connect(sfd, dst_info->ai_addr, dst_info->ai_addrlen);
+	if (rv < 0)
+	{
+		perror("Connect");
+		exit_error(dst_info);
+	}
+
 	printf("OK\n");
 	return 0;
 }
