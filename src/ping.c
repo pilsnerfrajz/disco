@@ -18,7 +18,8 @@
 
 void exit_error(struct addrinfo *dst)
 {
-	freeaddrinfo(dst);
+	if (dst != NULL)
+		freeaddrinfo(dst);
 	exit(EXIT_FAILURE);
 }
 
@@ -46,7 +47,6 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 	int ret = getaddrinfo(dst, NULL, &hints, &dst_info);
 	if (ret != 0)
 	{
-		freeaddrinfo(dst_info);
 		return NULL;
 	}
 
@@ -235,8 +235,9 @@ int ping(char *dst, int count)
 			sent_bytes = send(sfd, &ipv4_req_hdr, sizeof(ipv4_req_hdr), 0);
 			if (sent_bytes == -1)
 			{
-				perror("Send");
-				exit_error(dst_info);
+				// perror("Send");
+				// exit_error(dst_info);
+				continue;
 			}
 
 			struct icmp *reply_hdr = get_ipv4_reply_hdr(sfd, dst_info);
