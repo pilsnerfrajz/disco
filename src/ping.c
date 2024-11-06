@@ -139,7 +139,7 @@ uint16_t calc_checksum(void *hdr, int len)
 	return ~sum;
 }
 
-struct icmp create_ipv4_echo_req_hdr(int seq)
+struct icmp create_icmp4_echo_req_hdr(int seq)
 {
 	struct icmp req_hdr;
 	memset(&req_hdr, 0, sizeof(req_hdr));
@@ -178,7 +178,7 @@ struct icmp6_pseudo_hdr *create_icmp6_pseudo(int sfd, struct in6_addr dst)
 	return pseudo_hdr;
 }
 
-struct icmp6_hdr create_ipv6_echo_req_hdr(struct icmp6_pseudo_hdr *pseudo_hdr, int seq)
+struct icmp6_hdr create_icmp6_echo_req_hdr(struct icmp6_pseudo_hdr pseudo_hdr, int seq)
 {
 	struct icmp6_hdr icmp6_hdr;
 	memset(&icmp6_hdr, 0, sizeof(icmp6_hdr));
@@ -186,13 +186,12 @@ struct icmp6_hdr create_ipv6_echo_req_hdr(struct icmp6_pseudo_hdr *pseudo_hdr, i
 	icmp6_hdr.icmp6_code = 0;
 	icmp6_hdr.icmp6_id = htons(getpid() & 0xffff);
 	icmp6_hdr.icmp6_seq = htons(seq);
-	icmp6_hdr.icmp6_cksum = 0;
 	icmp6_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(pseudo_hdr) + sizeof(icmp6_hdr));
 
 	return icmp6_hdr;
 }
 
-struct icmp *get_ipv4_reply_hdr(int sfd, struct addrinfo *dst)
+struct icmp *get_icmp4_reply_hdr(int sfd, struct addrinfo *dst)
 {
 	char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
 	int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
@@ -217,11 +216,47 @@ struct icmp *get_ipv4_reply_hdr(int sfd, struct addrinfo *dst)
 	return reply_hdr;
 }
 
-int verify_ipv4_reply_hdr(struct icmp *reply_hdr, int seq)
+int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
 {
 	if (reply_hdr->icmp_type == ICMP_ECHOREPLY &&
-		ntohs(reply_hdr->icmp_hun.ih_idseq.icd_seq) == seq - 1 &&
+		ntohs(reply_hdr->icmp_hun.ih_idseq.icd_seq) == seq &&
 		ntohs(reply_hdr->icmp_hun.ih_idseq.icd_id) == (getpid() & 0xffff))
+	{
+		return 0;
+	}
+	return -1;
+}
+
+struct icmp6_hdr *get_icmp6_reply_hdr(int sfd, struct addrinfo *dst)
+{
+	char recvbuf[sizeof(struct icmp6_hdr)];
+	int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
+	if (recv_bytes < 0)
+	{
+		if (errno == EWOULDBLOCK)
+		{
+			return NULL;
+		}
+		else
+		{
+			perror("Recv");
+			exit_error(dst);
+		}
+	}
+	if (recv_bytes == 0)
+	{
+		return NULL;
+	}
+
+	struct icmp6_hdr *reply_hdr = (struct icmp6_hdr *)(recvbuf);
+	return reply_hdr;
+}
+
+int verify_icmp6_reply_hdr(struct icmp6_hdr *reply_hdr, int seq)
+{
+	if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
+		ntohs(reply_hdr->icmp6_seq) == seq &&
+		ntohs(reply_hdr->icmp6_id) == (getpid() & 0xffff))
 	{
 		return 0;
 	}
@@ -271,28 +306,28 @@ int ping(char *dst, int count)
 		exit_error(dst_info);
 	}
 
-	int seq = 1;
+	int seq = 0;
 	int sent_bytes;
 	int host_is_up = 0;
 	if (dst_info->ai_family == AF_INET)
 	{
 		for (int attempt = 0; attempt < count; attempt++)
 		{
-			struct icmp ipv4_req_hdr = create_ipv4_echo_req_hdr(seq++);
+			struct icmp icmp4_req_hdr = create_icmp4_echo_req_hdr(++seq);
 
-			sent_bytes = send(sfd, &ipv4_req_hdr, sizeof(ipv4_req_hdr), 0);
+			sent_bytes = send(sfd, &icmp4_req_hdr, sizeof(icmp4_req_hdr), 0);
 			if (sent_bytes == -1)
 			{
 				continue;
 			}
 
-			struct icmp *reply_hdr = get_ipv4_reply_hdr(sfd, dst_info);
+			struct icmp *reply_hdr = get_icmp4_reply_hdr(sfd, dst_info);
 			if (reply_hdr == NULL)
 			{
 				continue;
 			}
 
-			rv = verify_ipv4_reply_hdr(reply_hdr, seq);
+			rv = verify_icmp4_reply_hdr(reply_hdr, seq);
 			if (rv == 0)
 			{
 				host_is_up = 1;
@@ -304,7 +339,67 @@ int ping(char *dst, int count)
 	{
 		for (int attempt = 0; attempt < count; attempt++)
 		{
+			struct icmp6_hdr icmp6_hdr, *recv6_hdr;
+			char recvbuf_ipv6[sizeof(struct icmp6_hdr)];
+
+			memset(&icmp6_hdr, 0, sizeof(icmp6_hdr));
+			icmp6_hdr.icmp6_type = ICMP6_ECHO_REQUEST;
+			icmp6_hdr.icmp6_code = 0;
+			icmp6_hdr.icmp6_id = htons(getpid() & 0xffff);
+			icmp6_hdr.icmp6_seq = htons(++seq);
+			icmp6_hdr.icmp6_cksum = 0;
+
+			struct sockaddr_in6 src;
+			socklen_t sock_len = sizeof(src);
+			rv = getsockname(sfd, (struct sockaddr *)&src, &sock_len);
+			if (rv == -1)
+			{
+				perror("Getsockname");
+				exit_error(dst_info);
+			}
+
 			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst_info->ai_addr;
+			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
+			icmp6_pseudo_hdr pseudo_hdr = {
+				.source = src.sin6_addr,
+				.dest = dest_addr,
+				.zero = {0, 0, 0},
+				.length = htonl(sizeof(icmp6_hdr)),
+				.next = IPPROTO_ICMPV6,
+			};
+
+			icmp6_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(pseudo_hdr) + sizeof(icmp6_hdr));
+
+			int sent_bytes = send(sfd, &icmp6_hdr, sizeof(icmp6_hdr), 0);
+			if (sent_bytes == -1)
+			{
+				perror("Send");
+				exit_error(dst_info);
+			}
+
+			int recv_bytes = recv(sfd, &recvbuf_ipv6, sizeof(recvbuf_ipv6), 0);
+			if (recv_bytes < 0)
+			{
+				if (errno == EWOULDBLOCK)
+				{
+					continue;
+				}
+				else
+				{
+					perror("Recv");
+					exit_error(dst_info);
+				}
+			}
+
+			recv6_hdr = (struct icmp6_hdr *)(recvbuf_ipv6);
+			if (recv6_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
+				ntohs(recv6_hdr->icmp6_seq) == seq &&
+				ntohs(recv6_hdr->icmp6_id) == (getpid() & 0xffff))
+			{
+				host_is_up = 1;
+				break;
+			}
+			/*struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst_info->ai_addr;
 			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
 			struct icmp6_pseudo_hdr *pseudo_hdr = create_icmp6_pseudo(sfd, dest_addr);
 			if (pseudo_hdr == NULL)
@@ -313,7 +408,10 @@ int ping(char *dst, int count)
 				exit_error(dst_info);
 			}
 
-			struct icmp6_hdr icmp6_hdr = create_ipv6_echo_req_hdr(pseudo_hdr, seq++);
+			struct icmp6_hdr icmp6_hdr = create_icmp6_echo_req_hdr(*pseudo_hdr, ++seq);
+
+			// icmp6_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(*pseudo_hdr) + sizeof(icmp6_hdr));
+
 			free(pseudo_hdr);
 
 			sent_bytes = send(sfd, &icmp6_hdr, sizeof(icmp6_hdr), 0);
@@ -321,6 +419,19 @@ int ping(char *dst, int count)
 			{
 				continue;
 			}
+
+			struct icmp6_hdr *reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
+			if (reply_hdr == NULL)
+			{
+				continue;
+			}
+
+			rv = verify_icmp6_reply_hdr(reply_hdr, seq);
+			if (rv == 0)
+			{
+				host_is_up = 1;
+				break;
+			}*/
 		}
 	}
 
