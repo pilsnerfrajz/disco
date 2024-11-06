@@ -16,6 +16,15 @@
 
 #define TIMEOUT_SECONDS 2
 
+typedef struct icmp6_pseudo_hdr
+{
+	struct in6_addr source;
+	struct in6_addr dest;
+	u_int32_t length;
+	u_int32_t zero[3];
+	u_int8_t next;
+} icmp6_pseudo_hdr;
+
 void exit_error(struct addrinfo *dst)
 {
 	if (dst != NULL)
@@ -144,6 +153,45 @@ struct icmp create_ipv4_echo_req_hdr(int seq)
 	return req_hdr;
 }
 
+struct icmp6_pseudo_hdr *create_icmp6_pseudo(int sfd, struct in6_addr dst)
+{
+	struct sockaddr_in6 src;
+	socklen_t sock_len = sizeof(src);
+	int rv = getsockname(sfd, (struct sockaddr *)&src, &sock_len);
+	if (rv == -1)
+	{
+		return NULL;
+	}
+
+	icmp6_pseudo_hdr *pseudo_hdr = malloc(sizeof(icmp6_pseudo_hdr));
+	if (pseudo_hdr == NULL)
+	{
+		return NULL;
+	}
+
+	pseudo_hdr->source = src.sin6_addr;
+	pseudo_hdr->dest = dst;
+	memset(pseudo_hdr->zero, 0, sizeof(pseudo_hdr->zero));
+	pseudo_hdr->length = htonl(sizeof(struct icmp6_hdr)); // change struct?
+	pseudo_hdr->next = IPPROTO_ICMPV6;
+
+	return pseudo_hdr;
+}
+
+struct icmp6_hdr create_ipv6_echo_req_hdr(struct icmp6_pseudo_hdr *pseudo_hdr, int seq)
+{
+	struct icmp6_hdr icmp6_hdr;
+	memset(&icmp6_hdr, 0, sizeof(icmp6_hdr));
+	icmp6_hdr.icmp6_type = ICMP6_ECHO_REQUEST;
+	icmp6_hdr.icmp6_code = 0;
+	icmp6_hdr.icmp6_id = htons(getpid() & 0xffff);
+	icmp6_hdr.icmp6_seq = htons(seq);
+	icmp6_hdr.icmp6_cksum = 0;
+	icmp6_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(pseudo_hdr) + sizeof(icmp6_hdr));
+
+	return icmp6_hdr;
+}
+
 struct icmp *get_ipv4_reply_hdr(int sfd, struct addrinfo *dst)
 {
 	char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
@@ -235,8 +283,6 @@ int ping(char *dst, int count)
 			sent_bytes = send(sfd, &ipv4_req_hdr, sizeof(ipv4_req_hdr), 0);
 			if (sent_bytes == -1)
 			{
-				// perror("Send");
-				// exit_error(dst_info);
 				continue;
 			}
 
@@ -251,6 +297,29 @@ int ping(char *dst, int count)
 			{
 				host_is_up = 1;
 				break;
+			}
+		}
+	}
+	else
+	{
+		for (int attempt = 0; attempt < count; attempt++)
+		{
+			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst_info->ai_addr;
+			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
+			struct icmp6_pseudo_hdr *pseudo_hdr = create_icmp6_pseudo(sfd, dest_addr);
+			if (pseudo_hdr == NULL)
+			{
+				perror("Getsockname");
+				exit_error(dst_info);
+			}
+
+			struct icmp6_hdr icmp6_hdr = create_ipv6_echo_req_hdr(pseudo_hdr, seq++);
+			free(pseudo_hdr);
+
+			sent_bytes = send(sfd, &icmp6_hdr, sizeof(icmp6_hdr), 0);
+			if (sent_bytes == -1)
+			{
+				continue;
 			}
 		}
 	}
