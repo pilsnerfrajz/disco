@@ -153,44 +153,6 @@ struct icmp create_icmp4_echo_req_hdr(int seq)
 	return req_hdr;
 }
 
-struct icmp6_pseudo_hdr *create_icmp6_pseudo(int sfd, struct in6_addr dst)
-{
-	struct sockaddr_in6 src;
-	socklen_t sock_len = sizeof(src);
-	int rv = getsockname(sfd, (struct sockaddr *)&src, &sock_len);
-	if (rv == -1)
-	{
-		return NULL;
-	}
-
-	icmp6_pseudo_hdr *pseudo_hdr = malloc(sizeof(icmp6_pseudo_hdr));
-	if (pseudo_hdr == NULL)
-	{
-		return NULL;
-	}
-
-	pseudo_hdr->source = src.sin6_addr;
-	pseudo_hdr->dest = dst;
-	memset(pseudo_hdr->zero, 0, sizeof(pseudo_hdr->zero));
-	pseudo_hdr->length = htonl(sizeof(struct icmp6_hdr)); // change struct?
-	pseudo_hdr->next = IPPROTO_ICMPV6;
-
-	return pseudo_hdr;
-}
-
-struct icmp6_hdr create_icmp6_echo_req_hdr(struct icmp6_pseudo_hdr pseudo_hdr, int seq)
-{
-	struct icmp6_hdr icmp6_hdr;
-	memset(&icmp6_hdr, 0, sizeof(icmp6_hdr));
-	icmp6_hdr.icmp6_type = ICMP6_ECHO_REQUEST;
-	icmp6_hdr.icmp6_code = 0;
-	icmp6_hdr.icmp6_id = htons(getpid() & 0xffff);
-	icmp6_hdr.icmp6_seq = htons(seq);
-	icmp6_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(pseudo_hdr) + sizeof(icmp6_hdr));
-
-	return icmp6_hdr;
-}
-
 struct icmp *get_icmp4_reply_hdr(int sfd, struct addrinfo *dst)
 {
 	char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
@@ -252,15 +214,18 @@ struct icmp6_hdr *get_icmp6_reply_hdr(int sfd, struct addrinfo *dst)
 	return reply_hdr;
 }
 
-int verify_icmp6_reply_hdr(struct icmp6_hdr *reply_hdr, int seq)
+struct icmp6_hdr create_icmp6_echo_req_hdr(int seq)
 {
-	if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
-		ntohs(reply_hdr->icmp6_seq) == seq &&
-		ntohs(reply_hdr->icmp6_id) == (getpid() & 0xffff))
-	{
-		return 0;
-	}
-	return -1;
+	struct icmp6_hdr icmp6_hdr;
+
+	memset(&icmp6_hdr, 0, sizeof(icmp6_hdr));
+	icmp6_hdr.icmp6_type = ICMP6_ECHO_REQUEST;
+	icmp6_hdr.icmp6_code = 0;
+	icmp6_hdr.icmp6_id = htons(getpid() & 0xffff);
+	icmp6_hdr.icmp6_seq = htons(seq);
+	icmp6_hdr.icmp6_cksum = 0;
+
+	return icmp6_hdr;
 }
 
 int ping(char *dst, int count)
@@ -339,19 +304,11 @@ int ping(char *dst, int count)
 	{
 		for (int attempt = 0; attempt < count; attempt++)
 		{
-			struct icmp6_hdr icmp6_hdr, *recv6_hdr;
-			char recvbuf_ipv6[sizeof(struct icmp6_hdr)];
-
-			memset(&icmp6_hdr, 0, sizeof(icmp6_hdr));
-			icmp6_hdr.icmp6_type = ICMP6_ECHO_REQUEST;
-			icmp6_hdr.icmp6_code = 0;
-			icmp6_hdr.icmp6_id = htons(getpid() & 0xffff);
-			icmp6_hdr.icmp6_seq = htons(++seq);
-			icmp6_hdr.icmp6_cksum = 0;
+			struct icmp6_hdr icmp6_req_hdr = create_icmp6_echo_req_hdr(++seq);
 
 			struct sockaddr_in6 src;
 			socklen_t sock_len = sizeof(src);
-			rv = getsockname(sfd, (struct sockaddr *)&src, &sock_len);
+			int rv = getsockname(sfd, (struct sockaddr *)&src, &sock_len);
 			if (rv == -1)
 			{
 				perror("Getsockname");
@@ -364,74 +321,28 @@ int ping(char *dst, int count)
 				.source = src.sin6_addr,
 				.dest = dest_addr,
 				.zero = {0, 0, 0},
-				.length = htonl(sizeof(icmp6_hdr)),
+				.length = htonl(sizeof(icmp6_req_hdr)),
 				.next = IPPROTO_ICMPV6,
 			};
 
-			icmp6_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(pseudo_hdr) + sizeof(icmp6_hdr));
+			icmp6_req_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(pseudo_hdr) + sizeof(icmp6_req_hdr));
 
-			int sent_bytes = send(sfd, &icmp6_hdr, sizeof(icmp6_hdr), 0);
+			int sent_bytes = send(sfd, &icmp6_req_hdr, sizeof(icmp6_req_hdr), 0);
 			if (sent_bytes == -1)
 			{
 				perror("Send");
 				exit_error(dst_info);
 			}
 
-			int recv_bytes = recv(sfd, &recvbuf_ipv6, sizeof(recvbuf_ipv6), 0);
-			if (recv_bytes < 0)
-			{
-				if (errno == EWOULDBLOCK)
-				{
-					continue;
-				}
-				else
-				{
-					perror("Recv");
-					exit_error(dst_info);
-				}
-			}
-
-			recv6_hdr = (struct icmp6_hdr *)(recvbuf_ipv6);
-			if (recv6_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
-				ntohs(recv6_hdr->icmp6_seq) == seq &&
-				ntohs(recv6_hdr->icmp6_id) == (getpid() & 0xffff))
-			{
-				host_is_up = 1;
-				break;
-			}
-			/*struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst_info->ai_addr;
-			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
-			struct icmp6_pseudo_hdr *pseudo_hdr = create_icmp6_pseudo(sfd, dest_addr);
-			if (pseudo_hdr == NULL)
-			{
-				perror("Getsockname");
-				exit_error(dst_info);
-			}
-
-			struct icmp6_hdr icmp6_hdr = create_icmp6_echo_req_hdr(*pseudo_hdr, ++seq);
-
-			// icmp6_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(*pseudo_hdr) + sizeof(icmp6_hdr));
-
-			free(pseudo_hdr);
-
-			sent_bytes = send(sfd, &icmp6_hdr, sizeof(icmp6_hdr), 0);
-			if (sent_bytes == -1)
-			{
-				continue;
-			}
-
 			struct icmp6_hdr *reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
-			if (reply_hdr == NULL)
-			{
-				continue;
-			}
 
-			rv = verify_icmp6_reply_hdr(reply_hdr, seq);
-			if (rv == 0)
+			if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
+				ntohs(reply_hdr->icmp6_seq) == seq &&
+				ntohs(reply_hdr->icmp6_id) == (getpid() & 0xffff))
 			{
 				host_is_up = 1;
 				break;
-			}*/
+			}
 		}
 	}
 
