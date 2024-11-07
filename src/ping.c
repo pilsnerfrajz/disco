@@ -16,6 +16,11 @@
 
 #define TIMEOUT_SECONDS 2
 
+/**
+ * @brief ICMP6 pseudo header used when calculating the checksum
+ * for an ICMP6 packet.
+ *
+ */
 typedef struct icmp6_pseudo_hdr
 {
 	struct in6_addr source;
@@ -25,6 +30,11 @@ typedef struct icmp6_pseudo_hdr
 	u_int8_t next;
 } icmp6_pseudo_hdr;
 
+/**
+ * @brief Frees destination `addrinfo` struct and exits program.
+ *
+ * @param dst destination `addrinfo` struct
+ */
 void exit_error(struct addrinfo *dst)
 {
 	if (dst != NULL)
@@ -95,7 +105,7 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 /**
  * @brief Gets a proto object for the ICMP or ICMP6 protocols.
  *
- * @param dst_info `addrinfo*` structure of the target address.
+ * @param dst_info `addrinfo*` struct of the target address.
  * @return `struct protoent*` on success or `NULL` if an error occurs.
  */
 struct protoent *get_proto(struct addrinfo *dst_info)
@@ -123,7 +133,7 @@ struct protoent *get_proto(struct addrinfo *dst_info)
  * if no data is received, before proceeding.
  *
  * @param sfd The socket file descriptor.
- * @return `int` 0 if options are set correctly. Otherwise -1 is returned.
+ * @return `int` 0 if options are set correctly. Otherwise -1.
  */
 int set_socket_options(int sfd)
 {
@@ -173,6 +183,12 @@ uint16_t calc_checksum(void *hdr, int len)
 	return ~sum;
 }
 
+/**
+ * @brief Creates an ICMP echo request header.
+ *
+ * @param seq The sequence number of the packet.
+ * @return `struct icmp` ICMP header struct.
+ */
 struct icmp create_icmp4_echo_req_hdr(int seq)
 {
 	struct icmp req_hdr;
@@ -187,6 +203,14 @@ struct icmp create_icmp4_echo_req_hdr(int seq)
 	return req_hdr;
 }
 
+/**
+ * @brief Receives the ICMP echo reply and parses it to get the ICMP header.
+ *
+ * @param sfd The socket file descriptor.
+ * @param dst The `addrinfo*` struct of the target address.
+ * @return `struct icmp*` on success. `NULL` if no bytes are received or if a timeout
+ * occurs. Exits program on error.
+ */
 struct icmp *get_icmp4_reply_hdr(int sfd, struct addrinfo *dst)
 {
 	char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
@@ -212,6 +236,13 @@ struct icmp *get_icmp4_reply_hdr(int sfd, struct addrinfo *dst)
 	return reply_hdr;
 }
 
+/**
+ * @brief Verifies the echo reply.
+ *
+ * @param reply_hdr The ICMP header of the reply.
+ * @param seq The sequence number of the echo request.
+ * @return `int` 0 if reply matches request. Otherwise -1.
+ */
 int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
 {
 	if (reply_hdr->icmp_type == ICMP_ECHOREPLY &&
@@ -223,6 +254,14 @@ int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
 	return -1;
 }
 
+/**
+ * @brief Receives the ICMP6 echo reply and parses it to get the ICMP6 header.
+ *
+ * @param sfd The socket file descriptor.
+ * @param dst The `addrinfo*` struct of the target address.
+ * @return `struct icmp6_hdr*` on success. `NULL` if no bytes are received or if a timeout
+ * occurs. Exits program on error.
+ */
 struct icmp6_hdr *get_icmp6_reply_hdr(int sfd, struct addrinfo *dst)
 {
 	char recvbuf[sizeof(struct icmp6_hdr)];
@@ -248,6 +287,13 @@ struct icmp6_hdr *get_icmp6_reply_hdr(int sfd, struct addrinfo *dst)
 	return reply_hdr;
 }
 
+/**
+ * @brief Creates an ICMP6 echo request header. The checksum has to be set
+ * manually after declaration using the ICMP6 pseudo header.
+ *
+ * @param seq The sequence number of the packet.
+ * @return `struct icmp6_hdr` ICMP6 header struct.
+ */
 struct icmp6_hdr create_icmp6_echo_req_hdr(int seq)
 {
 	struct icmp6_hdr icmp6_hdr;
@@ -349,6 +395,7 @@ int ping(char *address, int tries)
 				exit_error(dst_info);
 			}
 
+			// parse the dst_info struct to get a suitable structure to use in pseudo.
 			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst_info->ai_addr;
 			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
 			icmp6_pseudo_hdr pseudo_hdr = {
