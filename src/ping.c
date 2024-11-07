@@ -228,16 +228,16 @@ struct icmp6_hdr create_icmp6_echo_req_hdr(int seq)
 	return icmp6_hdr;
 }
 
-int ping(char *dst, int count)
+int ping(char *address, int tries)
 {
-	int rv = validate_ip(dst);
+	int rv = validate_ip(address);
 	if (rv == -1)
 	{
 		fprintf(stderr, "Invalid IP address.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	struct addrinfo *dst_info = get_dst_addr_struct(dst);
+	struct addrinfo *dst_info = get_dst_addr_struct(address);
 	if (dst_info == NULL)
 	{
 		fprintf(stderr, "Failed getting target address info.\n");
@@ -248,7 +248,7 @@ int ping(char *dst, int count)
 	if (protocol == NULL)
 	{
 		fprintf(stderr, "Could not find a protocol with the given name.\n");
-		exit(EXIT_FAILURE);
+		exit_error(dst_info);
 	}
 
 	int sfd = socket(dst_info->ai_family, SOCK_RAW, protocol->p_proto);
@@ -276,7 +276,7 @@ int ping(char *dst, int count)
 	int host_is_up = 0;
 	if (dst_info->ai_family == AF_INET)
 	{
-		for (int attempt = 0; attempt < count; attempt++)
+		for (int attempt = 0; attempt < tries; attempt++)
 		{
 			struct icmp icmp4_req_hdr = create_icmp4_echo_req_hdr(++seq);
 
@@ -302,7 +302,7 @@ int ping(char *dst, int count)
 	}
 	else
 	{
-		for (int attempt = 0; attempt < count; attempt++)
+		for (int attempt = 0; attempt < tries; attempt++)
 		{
 			struct icmp6_hdr icmp6_req_hdr = create_icmp6_echo_req_hdr(++seq);
 
