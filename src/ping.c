@@ -32,6 +32,13 @@ void exit_error(struct addrinfo *dst)
 	exit(EXIT_FAILURE);
 }
 
+/**
+ * @brief Validates IP address strings. Supports IPv4 and IPv6.
+ *
+ * @param ip The IP address to validate.
+ * @return `int` 0 on valid address. -1 if the address is invalid
+ * or if an error occurs.
+ */
 int validate_ip(char *ip)
 {
 	struct in_addr ipv4_dst;
@@ -44,6 +51,13 @@ int validate_ip(char *ip)
 	return -1;
 }
 
+/**
+ * @brief Gets a pointer to an addrinfo structure for the destination
+ * IP address. The returned address should be freed with `freeaddrinfo()`.
+ *
+ * @param dst IP string.
+ * @return `struct addrinfo*` on success. `NULL` if an error occurs.
+ */
 struct addrinfo *get_dst_addr_struct(char *dst)
 {
 	struct addrinfo *dst_info;
@@ -78,6 +92,12 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 	return temp;
 }
 
+/**
+ * @brief Gets a proto object for the ICMP or ICMP6 protocols.
+ *
+ * @param dst_info `addrinfo*` structure of the target address.
+ * @return `struct protoent*` on success or `NULL` if an error occurs.
+ */
 struct protoent *get_proto(struct addrinfo *dst_info)
 {
 	struct protoent *protocol;
@@ -98,6 +118,13 @@ struct protoent *get_proto(struct addrinfo *dst_info)
 	return protocol;
 }
 
+/**
+ * @brief Sets a timeout on the socket. The socket blocks for `TIMEOUT_SECONDS`
+ * if no data is received, before proceeding.
+ *
+ * @param sfd The socket file descriptor.
+ * @return `int` 0 if options are set correctly. Otherwise -1 is returned.
+ */
 int set_socket_options(int sfd)
 {
 	struct timeval timeout = {
@@ -115,6 +142,13 @@ int set_socket_options(int sfd)
 	return 0;
 }
 
+/**
+ * @brief Calculates the internet checksum of an ICMP header or ICMP6 pseudo header.
+ *
+ * @param hdr The address of the header struct.
+ * @param len The size of the header struct.
+ * @return `uint16_t` Internet checksum of header struct.
+ */
 uint16_t calc_checksum(void *hdr, int len)
 {
 	uint16_t *temp = hdr;
