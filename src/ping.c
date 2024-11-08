@@ -38,18 +38,6 @@ typedef struct icmp6_pseudo_hdr
 } icmp6_pseudo_hdr;
 
 /**
- * @brief Frees destination `addrinfo` struct and exits program.
- *
- * @param dst destination `addrinfo` struct
- */
-void exit_error(struct addrinfo *dst)
-{
-	if (dst != NULL)
-		freeaddrinfo(dst);
-	exit(EXIT_FAILURE);
-}
-
-/**
  * @brief Validates IP address strings. Supports IPv4 and IPv6.
  *
  * @param ip The IP address to validate.
@@ -103,7 +91,6 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 
 	if (temp == NULL)
 	{
-		freeaddrinfo(dst_info);
 		return NULL;
 	}
 
@@ -153,7 +140,6 @@ int set_socket_options(int sfd)
 	int rv = setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 	if (rv == -1)
 	{
-		perror("Setsockopt");
 		return -1;
 	}
 
@@ -217,25 +203,13 @@ struct icmp create_icmp4_echo_req_hdr(int seq)
  * @param sfd The socket file descriptor.
  * @param dst The `addrinfo*` struct of the target address.
  * @return `struct icmp*` on success. `NULL` if no bytes are received or if a timeout
- * occurs. Exits program on error.
+ * occurs.
  */
-struct icmp *get_icmp4_reply_hdr(int sfd, struct addrinfo *dst)
+struct icmp *get_icmp4_reply_hdr(int sfd)
 {
 	char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
 	int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
-	if (recv_bytes < 0)
-	{
-		if (errno == EWOULDBLOCK)
-		{
-			return NULL;
-		}
-		else
-		{
-			perror("Recv");
-			exit_error(dst);
-		}
-	}
-	if (recv_bytes == 0)
+	if (recv_bytes <= 0)
 	{
 		return NULL;
 	}
@@ -268,25 +242,13 @@ int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
  * @param sfd The socket file descriptor.
  * @param dst The `addrinfo*` struct of the target address.
  * @return `struct icmp6_hdr*` on success. `NULL` if no bytes are received or if a timeout
- * occurs. Exits program on error.
+ * occurs.
  */
-struct icmp6_hdr *get_icmp6_reply_hdr(int sfd, struct addrinfo *dst)
+struct icmp6_hdr *get_icmp6_reply_hdr(int sfd)
 {
 	char recvbuf[sizeof(struct icmp6_hdr)];
 	int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
-	if (recv_bytes < 0)
-	{
-		if (errno == EWOULDBLOCK)
-		{
-			return NULL;
-		}
-		else
-		{
-			perror("Recv");
-			exit_error(dst);
-		}
-	}
-	if (recv_bytes == 0)
+	if (recv_bytes <= 0)
 	{
 		return NULL;
 	}
@@ -327,8 +289,6 @@ int ping(char *address, int tries)
 	struct addrinfo *dst_info = get_dst_addr_struct(address);
 	if (dst_info == NULL)
 	{
-		// fprintf(stderr, "Failed getting target address info.\n");
-		// exit_error(dst_info);
 		freeaddrinfo(dst_info);
 		return STRUCT_ERROR;
 	}
@@ -336,8 +296,6 @@ int ping(char *address, int tries)
 	struct protoent *protocol = get_proto(dst_info);
 	if (protocol == NULL)
 	{
-		// fprintf(stderr, "Could not find a protocol with the given name.\n");
-		// exit_error(dst_info);
 		freeaddrinfo(dst_info);
 		return STRUCT_ERROR;
 	}
@@ -378,7 +336,7 @@ int ping(char *address, int tries)
 				continue;
 			}
 
-			struct icmp *reply_hdr = get_icmp4_reply_hdr(sfd, dst_info);
+			struct icmp *reply_hdr = get_icmp4_reply_hdr(sfd);
 			if (reply_hdr == NULL)
 			{
 				continue;
@@ -426,7 +384,7 @@ int ping(char *address, int tries)
 				continue;
 			}
 
-			struct icmp6_hdr *reply_hdr = reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
+			struct icmp6_hdr *reply_hdr = reply_hdr = get_icmp6_reply_hdr(sfd);
 			if (reply_hdr == NULL)
 			{
 				continue;
@@ -435,7 +393,7 @@ int ping(char *address, int tries)
 			// when pinging loopback, the request is sometimes captured by recv
 			if (reply_hdr->icmp6_type == ICMP6_ECHO_REQUEST)
 			{
-				reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
+				reply_hdr = get_icmp6_reply_hdr(sfd);
 			}
 
 			if (reply_hdr != NULL &&
