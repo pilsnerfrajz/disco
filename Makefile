@@ -23,7 +23,8 @@ $(OBJS):
 dir:
 	@mkdir -p $(BIN_DIR) $(BUILD_DIR)
 
-setup:
-	@brew install cunit
+test:
+	@$(CC) $(CFLAGS) -o $(BIN_DIR)/ping_test $(TESTS_DIR)/ping_test.c $(SRC_DIR)/ping.c
+	@sudo $(BIN_DIR)/ping_test
 
 .PHONY: dir
