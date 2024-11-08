@@ -14,7 +14,7 @@
 #include <sys/time.h>
 #include <errno.h>
 
-// return codes. see header file for explanation
+// return codes
 #define PING_SUCCESS 0
 #define NO_RESPONSE 1
 #define INVALID_IP 2
