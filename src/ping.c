@@ -14,6 +14,13 @@
 #include <sys/time.h>
 #include <errno.h>
 
+// return codes. see header file for explanation
+#define PING_SUCCESS 0
+#define NO_RESPONSE 1
+#define INVALID_IP 2
+#define STRUCT_ERROR 3
+#define SOCKET_ERROR 4
+
 #define TIMEOUT_SECONDS 2
 
 /**
@@ -314,42 +321,46 @@ int ping(char *address, int tries)
 	int rv = validate_ip(address);
 	if (rv == -1)
 	{
-		fprintf(stderr, "Invalid IP address.\n");
-		exit(EXIT_FAILURE);
+		return INVALID_IP;
 	}
 
 	struct addrinfo *dst_info = get_dst_addr_struct(address);
 	if (dst_info == NULL)
 	{
-		fprintf(stderr, "Failed getting target address info.\n");
-		exit_error(dst_info);
+		// fprintf(stderr, "Failed getting target address info.\n");
+		// exit_error(dst_info);
+		freeaddrinfo(dst_info);
+		return STRUCT_ERROR;
 	}
 
 	struct protoent *protocol = get_proto(dst_info);
 	if (protocol == NULL)
 	{
-		fprintf(stderr, "Could not find a protocol with the given name.\n");
-		exit_error(dst_info);
+		// fprintf(stderr, "Could not find a protocol with the given name.\n");
+		// exit_error(dst_info);
+		freeaddrinfo(dst_info);
+		return STRUCT_ERROR;
 	}
 
 	int sfd = socket(dst_info->ai_family, SOCK_RAW, protocol->p_proto);
 	if (sfd == -1)
 	{
-		perror("Socket");
-		exit_error(dst_info);
+		freeaddrinfo(dst_info);
+		return SOCKET_ERROR;
 	}
 
 	rv = set_socket_options(sfd);
 	if (rv == -1)
 	{
-		exit_error(dst_info);
+		freeaddrinfo(dst_info);
+		return SOCKET_ERROR;
 	}
 
 	rv = connect(sfd, dst_info->ai_addr, dst_info->ai_addrlen);
 	if (rv < 0)
 	{
-		perror("Connect");
-		exit_error(dst_info);
+		freeaddrinfo(dst_info);
+		return SOCKET_ERROR;
 	}
 
 	int seq = 0;
@@ -392,8 +403,8 @@ int ping(char *address, int tries)
 			int rv = getsockname(sfd, (struct sockaddr *)&src, &sock_len);
 			if (rv == -1)
 			{
-				perror("Getsockname");
-				exit_error(dst_info);
+				freeaddrinfo(dst_info);
+				return SOCKET_ERROR;
 			}
 
 			// parse the dst_info struct to get a suitable structure to use in pseudo.
@@ -412,8 +423,7 @@ int ping(char *address, int tries)
 			int sent_bytes = send(sfd, &icmp6_req_hdr, sizeof(icmp6_req_hdr), 0);
 			if (sent_bytes == -1)
 			{
-				perror("Send");
-				exit_error(dst_info);
+				continue;
 			}
 
 			struct icmp6_hdr *reply_hdr = reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
@@ -443,7 +453,7 @@ int ping(char *address, int tries)
 	close(sfd);
 
 	if (host_is_up)
-		return 0;
+		return PING_SUCCESS;
 
-	return -1;
+	return NO_RESPONSE;
 }
