@@ -416,35 +416,20 @@ int ping(char *address, int tries)
 				exit_error(dst_info);
 			}
 
-			struct icmp6_hdr *reply_hdr = NULL;
-
-			// when pinging loopback, the request is sometimes captured by recv.
-			// this loop gets the reply
-			int i = 0;
-			while (i < 2)
-			{
-				reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
-				if (reply_hdr == NULL)
-				{
-					break;
-				}
-				else if (reply_hdr->icmp6_type == ICMP6_ECHO_REQUEST)
-				{
-					i++;
-					continue;
-				}
-				else if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY)
-				{
-					break;
-				}
-			}
-
+			struct icmp6_hdr *reply_hdr = reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
 			if (reply_hdr == NULL)
 			{
 				continue;
 			}
 
-			if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
+			// when pinging loopback, the request is sometimes captured by recv
+			if (reply_hdr->icmp6_type == ICMP6_ECHO_REQUEST)
+			{
+				reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
+			}
+
+			if (reply_hdr != NULL &&
+				reply_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
 				ntohs(reply_hdr->icmp6_seq) == seq &&
 				ntohs(reply_hdr->icmp6_id) == (getpid() & 0xffff))
 			{
