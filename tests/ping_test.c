@@ -3,6 +3,7 @@
 
 /*
  * Tests while I work on getting CUnit to work
+ * Run with `make test` in root of project
  */
 int main(void)
 {
