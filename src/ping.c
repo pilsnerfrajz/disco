@@ -418,7 +418,8 @@ int ping(char *address, int tries)
 
 			struct icmp6_hdr *reply_hdr = NULL;
 
-			// when pinging loopback, the request is sometimes captured by recv. The loop gets the reply
+			// when pinging loopback, the request is sometimes captured by recv.
+			// this loop gets the reply
 			int i = 0;
 			while (i < 2)
 			{
@@ -427,7 +428,7 @@ int ping(char *address, int tries)
 				{
 					break;
 				}
-				if (reply_hdr->icmp6_type == ICMP6_ECHO_REQUEST)
+				else if (reply_hdr->icmp6_type == ICMP6_ECHO_REQUEST)
 				{
 					i++;
 					continue;
