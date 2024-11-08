@@ -23,4 +23,7 @@ $(OBJS):
 dir:
 	@mkdir -p $(BIN_DIR) $(BUILD_DIR)
 
+setup:
+	@$(brew install cunit)
+
 .PHONY: dir
