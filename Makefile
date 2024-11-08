@@ -24,6 +24,6 @@ dir:
 	@mkdir -p $(BIN_DIR) $(BUILD_DIR)
 
 setup:
-	@$(brew install cunit)
+	@brew install cunit
 
 .PHONY: dir
