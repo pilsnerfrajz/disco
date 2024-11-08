@@ -8,7 +8,7 @@
  * format, e.g., "93.184.215.14" or "2606:2800:21f:cb07:6820:80da:af6b:8b2c".
  * Hostnames or domain names are not valid arguments.
  * @param tries The number of echo requests to send.
- * @return `int` 0 if host is reachable within the number specified tries.
+ * @return `int` 0 if host is reachable within the number of specified tries.
  * -1 if host is unreachable or if an error occurs (e.g., invalid address).
  */
 int ping(char *address, int tries);
