@@ -63,7 +63,8 @@ int validate_ip(char *ip)
 
 /**
  * @brief Gets a pointer to an addrinfo structure for the destination
- * IP address. The returned address should be freed with `freeaddrinfo()`.
+ * IP address. Allows socket setup to be IP-address family agnostic.
+ * The returned struct should be freed with `freeaddrinfo()`.
  *
  * @param dst IP string.
  * @return `struct addrinfo*` on success. `NULL` if an error occurs.
@@ -416,6 +417,10 @@ int ping(char *address, int tries)
 			}
 
 			struct icmp6_hdr *reply_hdr = get_icmp6_reply_hdr(sfd, dst_info);
+			if (reply_hdr == NULL)
+			{
+				continue;
+			}
 
 			if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
 				ntohs(reply_hdr->icmp6_seq) == seq &&
