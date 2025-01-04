@@ -3,7 +3,7 @@
 
 void ping_test(void)
 {
-	printf("PING TESTS\n");
+	printf("-- PING TESTS --\n");
 	int ret;
 	if ((ret = ping("256.1.1.1", 3)) == 2)
 		printf("✅ IPv4 invalid IP test passed\n");
