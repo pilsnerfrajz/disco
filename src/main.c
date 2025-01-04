@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "../include/ping.h"
 
-// sample program. run with sudo
+// sample program
 int main(int argc, char *argv[])
 {
 	if (argc != 3)
@@ -17,23 +17,18 @@ int main(int argc, char *argv[])
 	{
 	case 0:
 		printf("Host is up!\n");
+		return ret;
 		break;
 	case 1:
 		printf("No response from host.\n");
 		break;
 	case 2:
 		printf("Invalid IP address.\n");
-		return -1;
-		break;
-	case 3:
-		printf("Run program as sudo.\n");
-		return -1;
+		return ret;
 		break;
 	default:
 		printf("Some error occurred.");
-		return -1;
+		return ret;
 		break;
 	}
-
-	return 0;
 }

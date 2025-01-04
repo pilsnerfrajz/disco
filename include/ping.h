@@ -16,11 +16,9 @@
  *
  * - 2: `INVALID_IP` if target IP address is invalid.
  *
- * - 3: `PERMISSION_ERROR` if program is run without necessary permissions (e.g., sudo).
+ * - 3: `STRUCT_ERROR`if and errors occurs when setting up the necessary structs.
  *
- * - 4: `STRUCT_ERROR`if and errors occurs when setting up the necessary structs.
- *
- * - 5: `SOCKET_ERROR` if any socket error occurs that makes.
+ * - 4: `SOCKET_ERROR` if any socket error occurs.
  */
 int ping(char *address, int tries);
 
