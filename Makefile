@@ -10,10 +10,6 @@ BIN_DIR := bin
 
 OBJS := $(patsubst %.c,%.o, $(wildcard $(SRC_DIR)/*.c))
 TEST_OBJS := $(patsubst %.c,%.o, $(wildcard $(TESTS_DIR)/*.c))
-EXC_MAIN := $(filter-out src/main.o, $(OBJS))
-#$(info objs: $(OBJS))
-#$(info tests: $(TEST_OBJS))
-#$(info exc: $(EXC_MAIN))
 
 CC := gcc
 CFLAGS := -Wall -Wextra -pedantic
@@ -24,16 +20,13 @@ $(NAME): dir $(OBJS)
 $(OBJS):
 	@$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ -c $*.c
 
-test: dir $(TEST_OBJS) $(EXC_MAIN)
+test: dir $(TEST_OBJS) $(OBJS)
 	@$(CC) $(CFLAGS) -o $(BIN_DIR)/$(TESTS_DIR)/run_all_tests \
-	$(patsubst %,$(BUILD_DIR)/%, $(EXC_MAIN)) \
+	$(patsubst %,$(BUILD_DIR)/%, $(filter-out src/main.o, $(OBJS))) \
 	$(patsubst %,$(BUILD_DIR)/%, $(TEST_OBJS))
 	@$(BIN_DIR)/$(TESTS_DIR)/run_all_tests
 
 $(TEST_OBJS):
-	@$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ -c $*.c
-
-$(EXC_MAIN):
 	@$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ -c $*.c
 
 dir:
