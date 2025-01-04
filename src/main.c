@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "../include/ping.h"
 
-// sample program. run with sudo
+// sample program
 int main(int argc, char *argv[])
 {
 	if (argc != 3)
@@ -24,10 +24,6 @@ int main(int argc, char *argv[])
 		break;
 	case 2:
 		printf("Invalid IP address.\n");
-		return ret;
-		break;
-	case 3:
-		printf("Run program as sudo.\n");
 		return ret;
 		break;
 	default:
