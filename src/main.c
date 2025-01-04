@@ -17,23 +17,22 @@ int main(int argc, char *argv[])
 	{
 	case 0:
 		printf("Host is up!\n");
+		return ret;
 		break;
 	case 1:
 		printf("No response from host.\n");
 		break;
 	case 2:
 		printf("Invalid IP address.\n");
-		return -1;
+		return ret;
 		break;
 	case 3:
 		printf("Run program as sudo.\n");
-		return -1;
+		return ret;
 		break;
 	default:
 		printf("Some error occurred.");
-		return -1;
+		return ret;
 		break;
 	}
-
-	return 0;
 }
