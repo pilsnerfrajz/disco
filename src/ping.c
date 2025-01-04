@@ -18,9 +18,8 @@
 #define PING_SUCCESS 0
 #define NO_RESPONSE 1
 #define INVALID_IP 2
-#define PERMISSION_ERROR 3
-#define STRUCT_ERROR 4
-#define SOCKET_ERROR 5
+#define STRUCT_ERROR 3
+#define SOCKET_ERROR 4
 
 #define TIMEOUT_SECONDS 2
 
@@ -305,10 +304,6 @@ int ping(char *address, int tries)
 	if (sfd == -1)
 	{
 		freeaddrinfo(dst_info);
-		if (errno == EPERM)
-		{
-			return PERMISSION_ERROR;
-		}
 		return SOCKET_ERROR;
 	}
 
