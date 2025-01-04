@@ -71,7 +71,7 @@ struct addrinfo *get_dst_addr_struct(char *dst)
 	struct addrinfo hints;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_RAW;
+	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_flags = AI_PASSIVE;
 
 	int ret = getaddrinfo(dst, NULL, &hints, &dst_info);
@@ -301,7 +301,7 @@ int ping(char *address, int tries)
 		return STRUCT_ERROR;
 	}
 
-	int sfd = socket(dst_info->ai_family, SOCK_RAW, protocol->p_proto);
+	int sfd = socket(dst_info->ai_family, SOCK_DGRAM, protocol->p_proto);
 	if (sfd == -1)
 	{
 		freeaddrinfo(dst_info);
@@ -342,6 +342,16 @@ int ping(char *address, int tries)
 			}
 
 			struct icmp *reply_hdr = get_icmp4_reply_hdr(sfd);
+			if (reply_hdr == NULL)
+			{
+				continue;
+			}
+
+			if (reply_hdr->icmp_type == ICMP_ECHO)
+			{
+				reply_hdr = get_icmp4_reply_hdr(sfd);
+			}
+
 			if (reply_hdr == NULL)
 			{
 				continue;
