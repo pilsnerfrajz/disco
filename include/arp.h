@@ -3,6 +3,16 @@
 
 #include <sys/types.h>
 
+typedef struct ethernet_header
+{
+	/* Ethernet address of destination */
+	u_int8_t dst[6];
+	/* Ethernet address of sender */
+	u_int8_t src[6];
+	/* Protocol type */
+	u_int16_t ptype;
+} ethernet_header;
+
 /**
  * @brief ARP packet according to RFC 826. Allocate memory for variable fields
  * dynamically.
@@ -28,5 +38,14 @@ typedef struct arp_packet
 	/* Protocol address of target (IP), pln bytes */
 	u_int8_t *tpa;
 } arp_packet;
+
+/**
+ * @brief Combined Ethernet header and ARP packet.
+ */
+typedef struct arp_frame
+{
+	ethernet_header eth_hdr;
+	arp_packet arp_data;
+} arp_frame;
 
 #endif
