@@ -3,6 +3,12 @@
 
 #include <sys/types.h>
 
+typedef enum err
+{
+	SUCCESS,
+	STRUCT_ERROR,
+} err;
+
 typedef struct ethernet_header
 {
 	/* Ethernet address of destination */
@@ -47,5 +53,7 @@ typedef struct arp_frame
 	ethernet_header eth_hdr;
 	arp_packet arp_data;
 } arp_frame;
+
+int get_mac_addr(void);
 
 #endif
