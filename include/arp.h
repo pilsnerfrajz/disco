@@ -7,6 +7,7 @@ typedef enum err
 {
 	SUCCESS,
 	STRUCT_ERROR,
+	SOCKET_ERROR,
 } err;
 
 typedef struct ethernet_header
@@ -55,5 +56,6 @@ typedef struct arp_frame
 } arp_frame;
 
 int get_mac_addr(void);
+int arp(char *);
 
 #endif
