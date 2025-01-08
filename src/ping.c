@@ -247,7 +247,7 @@ int ping(char *address, int tries)
 		return INVALID_IP;
 	}
 
-	struct addrinfo *dst_info = get_dst_addr_struct(address);
+	struct addrinfo *dst_info = get_dst_addr_struct(address, SOCK_DGRAM);
 	if (dst_info == NULL)
 	{
 		freeaddrinfo(dst_info);
