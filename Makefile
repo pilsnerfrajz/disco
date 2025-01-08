@@ -13,9 +13,10 @@ TEST_OBJS := $(patsubst %.c,%.o, $(wildcard $(TESTS_DIR)/*.c))
 
 CC := gcc
 CFLAGS := -Wall -Wextra -pedantic
+LDFLAGS := -lpcap
 
 $(NAME): dir $(OBJS)
-	$(CC) $(CFLAGS) -o $(BIN_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%, $(OBJS))
+	$(CC) $(CFLAGS) -o $(BIN_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%, $(OBJS)) $(LDFLAGS)
 
 $(OBJS):
 	@$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ -c $*.c
@@ -23,7 +24,7 @@ $(OBJS):
 test: dir $(TEST_OBJS) $(OBJS)
 	@$(CC) $(CFLAGS) -o $(BIN_DIR)/$(TESTS_DIR)/run_all_tests \
 	$(patsubst %,$(BUILD_DIR)/%, $(filter-out src/main.o, $(OBJS))) \
-	$(patsubst %,$(BUILD_DIR)/%, $(TEST_OBJS))
+	$(patsubst %,$(BUILD_DIR)/%, $(TEST_OBJS)) $(LDFLAGS)
 	@$(BIN_DIR)/$(TESTS_DIR)/run_all_tests
 
 $(TEST_OBJS):
