@@ -23,7 +23,7 @@ void ping_test(void)
 	if ((ret = ping("::1", 3)) == 0)
 		printf("✅ IPv6 loopback ping test passed\n");
 	else
-		printf("❌ IPv6 loopback ping test failed\n");
+		printf("❌ IPv6 loopback ping test failed. Return code: %d\n", ret);
 
 	if ((ret = ping("93.184.215.14", 3)) == 0)
 		printf("✅ IPv4 example.com ping test passed\n");
