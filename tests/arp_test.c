@@ -3,6 +3,12 @@
 
 void arp_test(void)
 {
-	int ret = get_mac_addr();
-	printf("%d\n", ret);
+	printf("-- ARP TESTS --\n");
+	printf("\tARP possible test\n");
+	int ret = arp("192.168.1.100");
+	printf("ARP good test: %d\n", ret);
+
+	printf("\tARP not possible test\n");
+	ret = arp("8.8.8.8");
+	printf("ARP bad test: %d\n", ret);
 }
