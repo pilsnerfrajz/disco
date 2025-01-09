@@ -2,6 +2,7 @@
 #define ARP_H
 
 #include <sys/types.h>
+#include <netdb.h>
 
 typedef enum err
 {
@@ -55,7 +56,7 @@ typedef struct arp_frame
 	arp_packet arp_data;
 } arp_frame;
 
-int get_mac_addr(void);
+int get_mac_addr(struct sockaddr_in *);
 int arp(char *);
 
 #endif
