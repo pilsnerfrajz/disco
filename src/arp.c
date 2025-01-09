@@ -67,9 +67,11 @@ int get_mac_addr(struct sockaddr_in *dst)
 
 	// TODO save IP and MAC.
 
+	/* Bools for checking if we have wanted info */
 	int net_mask = 0;
 	int ip_addr = 0;
 	int mac_addr = 0;
+
 	char *iface = "";
 	unsigned char *mac;
 	struct sockaddr_in *ip;
@@ -126,7 +128,8 @@ int get_mac_addr(struct sockaddr_in *dst)
 
 		if (ifa->ifa_name != NULL)
 		{
-			if (strncmp(iface, ifa->ifa_name, strlen(iface)) != 0)
+			/* If a new interface is found, reset */
+			if (strcmp(iface, ifa->ifa_name) != 0)
 			{
 				iface = ifa->ifa_name;
 				net_mask = 0;
