@@ -17,28 +17,44 @@
 
 int arp(char *address)
 {
-	char errbuf[PCAP_ERRBUF_SIZE];
+	/*char errbuf[PCAP_ERRBUF_SIZE];
 	int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
 	if (rv != 0)
 	{
 		fprintf(stderr, "Pcap_init error: %s\n", errbuf);
 		return -1;
-	}
+	}*/
 
 	// pcap_inject();
 
-	/*struct addrinfo *dst_info = get_dst_addr_struct(address, SOCK_RAW);
+	struct addrinfo *dst_info = get_dst_addr_struct(address, SOCK_DGRAM);
 	if (dst_info == NULL)
 	{
 		freeaddrinfo(dst_info);
 		return STRUCT_ERROR;
 	}
 
-	freeaddrinfo(dst_info);*/
-	return SUCCESS;
+	int ret = get_mac_addr((struct sockaddr_in *)dst_info->ai_addr);
+
+	freeaddrinfo(dst_info);
+	return ret;
 }
 
-int get_mac_addr(void)
+int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
+{
+	int src_net = ntohl(src) & ntohl(mask);
+	int dst_net = ntohl(dst) & ntohl(mask);
+
+	printf("src_net: %08x, dst_net: %08x\n", src_net, dst_net);
+
+	if (src_net == dst_net)
+	{
+		return 0;
+	}
+	return -1;
+}
+
+int get_mac_addr(struct sockaddr_in *dst)
 {
 	struct ifaddrs *ifap;
 	struct ifaddrs *ifa;
@@ -48,12 +64,9 @@ int get_mac_addr(void)
 		perror("getifaddrs");
 		return STRUCT_ERROR;
 	}
-	/*
-	 * Get MAC, IP, subnet mask from interface. Check if source and target are
-	 * on the same subnet.
-	 * If not continue until found or list is null.
-	 * Else save IP and MAC.
-	 */
+
+	// TODO save IP and MAC.
+
 	int net_mask = 0;
 	int ip_addr = 0;
 	int mac_addr = 0;
@@ -76,7 +89,19 @@ int get_mac_addr(void)
 
 		if (ip_addr && mac_addr && net_mask)
 		{
-			printf("Interface: %s\n", iface);
+			/* If target and host are on the same subnet, ARP is possible */
+			if (compare_subnets(ip->sin_addr.s_addr,
+								dst->sin_addr.s_addr,
+								mask->sin_addr.s_addr) != 0)
+			{
+				printf("ARP is not possible!\n");
+				net_mask = 0;
+				ip_addr = 0;
+				mac_addr = 0;
+				continue;
+			}
+
+			printf("ARP is possible for:\nInterface: %s\n", iface);
 
 			char print_ip[INET_ADDRSTRLEN];
 			if (inet_ntop(AF_INET, &ip->sin_addr.s_addr, print_ip, INET_ADDRSTRLEN) == NULL)
@@ -94,7 +119,9 @@ int get_mac_addr(void)
 
 			printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
 				   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-			break;
+
+			freeifaddrs(ifap);
+			return SUCCESS;
 		}
 
 		if (ifa->ifa_name != NULL)
@@ -138,5 +165,5 @@ int get_mac_addr(void)
 	}
 
 	freeifaddrs(ifap);
-	return SUCCESS;
+	return -1;
 }
