@@ -64,11 +64,15 @@ int get_mac_addr(void)
 
 	for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next)
 	{
-		// check if loopback and continue
-		/*if (ip != NULL && ip->sin_addr.s_addr == htonl(INADDR_LOOPBACK))
+		/* Check if interface is loopback. Continue if it is */
+		if (ip_addr)
 		{
-			continue;
-		}*/
+			if (((ntohl(ip->sin_addr.s_addr) & 0xFF000000) == 0x7F000000))
+			{
+				ip_addr = 0;
+				continue;
+			}
+		}
 
 		if (ip_addr && mac_addr && net_mask)
 		{
@@ -112,8 +116,6 @@ int get_mac_addr(void)
 
 			if (s->sdl_type == IFT_ETHER)
 			{
-				// iface = ifa->ifa_name;
-				//  printf("%s\n", ifa->ifa_name);
 				/* Jump to address in sdl_data with macro */
 				mac = (unsigned char *)LLADDR(s);
 				mac_addr = 1;
