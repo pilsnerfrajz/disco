@@ -36,12 +36,46 @@ int arp(char *address)
 		return STRUCT_ERROR;
 	}
 
-	u_int8_t spa[4];
-	u_int8_t sha[6];
-	int ret = get_arp_details((struct sockaddr_in *)dst_info->ai_addr, spa, sha);
+	u_int8_t sender_ip[4];
+	u_int8_t sender_mac[6];
+	int ret = get_arp_details((struct sockaddr_in *)dst_info->ai_addr,
+							  sender_ip, sender_mac);
+	if (ret != SUCCESS)
+	{
+		freeaddrinfo(dst_info);
+		return -1;
+	}
+
+	struct ethernet_header ethernet_header;
+	struct arp_packet arp_packet;
+	memset(&ethernet_header, 0, sizeof(ethernet_header));
+	memset(&arp_packet, 0, sizeof(arp_packet));
+
+	/* Populate ethernet header */
+	memset(&ethernet_header.dst, 0xff, 6);
+	memcpy(&ethernet_header.src, sender_mac, 6);
+	ethernet_header.ptype = htons(0x0806);
+
+	/* Populate ARP packet */
+	arp_packet.hrd = htons(1);
+	arp_packet.pro = htons(0x0800);
+	arp_packet.hln = 6;
+	arp_packet.pln = 4;
+	arp_packet.op = htons(1); /* Request */
+	memcpy(&arp_packet.sha, sender_mac, sizeof(arp_packet.sha));
+	memcpy(&arp_packet.spa, sender_ip, sizeof(arp_packet.spa));
+	memcpy(&arp_packet.tpa, &((struct sockaddr_in *)dst_info->ai_addr)->sin_addr,
+		   sizeof(arp_packet.tpa));
+	/* Target hardware address (tpa) = don't care */
+
+	/* Prepare frame */
+	struct arp_frame_t arp_frame = {
+		.eth_hdr = ethernet_header,
+		.arp_data = arp_packet,
+	};
 
 	freeaddrinfo(dst_info);
-	return ret;
+	return SUCCESS;
 }
 
 int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
