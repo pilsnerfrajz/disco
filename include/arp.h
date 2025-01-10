@@ -38,13 +38,13 @@ typedef struct arp_packet
 	/* Opcode REQUEST or REPLY */
 	u_int16_t op;
 	/* Hardware address of sender of this packet, hln bytes */
-	u_int8_t *sha;
+	u_int8_t sha[6];
 	/* Protocol address of sender of this packet, pln bytes */
-	u_int8_t *spa;
+	u_int8_t spa[4];
 	/* Hardware address of target of this packet (if known), hln bytes */
-	u_int8_t *tha;
+	u_int8_t tha[6];
 	/* Protocol address of target (IP), pln bytes */
-	u_int8_t *tpa;
+	u_int8_t tpa[4];
 } arp_packet_t;
 
 /**
