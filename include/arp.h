@@ -9,7 +9,7 @@ typedef enum err
 	SUCCESS,
 	STRUCT_ERROR,
 	SOCKET_ERROR,
-} err;
+} err_t;
 
 typedef struct ethernet_header
 {
@@ -19,7 +19,7 @@ typedef struct ethernet_header
 	u_int8_t src[6];
 	/* Protocol type */
 	u_int16_t ptype;
-} ethernet_header;
+} ethernet_header_t;
 
 /**
  * @brief ARP packet according to RFC 826. Allocate memory for variable fields
@@ -45,15 +45,15 @@ typedef struct arp_packet
 	u_int8_t *tha;
 	/* Protocol address of target (IP), pln bytes */
 	u_int8_t *tpa;
-} arp_packet;
+} arp_packet_t;
 
 /**
  * @brief Combined Ethernet header and ARP packet.
  */
-typedef struct arp_frame
+typedef struct arp_frame_t
 {
-	ethernet_header eth_hdr;
-	arp_packet arp_data;
+	ethernet_header_t eth_hdr;
+	arp_packet_t arp_data;
 } arp_frame;
 
 int get_arp_details(struct sockaddr_in *, u_int8_t *, u_int8_t *);
