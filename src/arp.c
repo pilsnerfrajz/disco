@@ -51,12 +51,16 @@ int arp(char *address)
 	memset(&ethernet_header, 0, sizeof(ethernet_header));
 	memset(&arp_packet, 0, sizeof(arp_packet));
 
-	/* Populate ethernet header */
+	/* Populate ethernet header
+	 *https://en.wikipedia.org/wiki/EtherType
+	 */
 	memset(&ethernet_header.dst, 0xff, 6);
 	memcpy(&ethernet_header.src, sender_mac, 6);
 	ethernet_header.ptype = htons(0x0806);
 
-	/* Populate ARP packet */
+	/* Populate ARP packet
+	 * https://en.wikipedia.org/wiki/Address_Resolution_Protocol
+	 */
 	arp_packet.hrd = htons(1);
 	arp_packet.pro = htons(0x0800);
 	arp_packet.hln = 6;
@@ -64,7 +68,8 @@ int arp(char *address)
 	arp_packet.op = htons(1); /* Request */
 	memcpy(&arp_packet.sha, sender_mac, sizeof(arp_packet.sha));
 	memcpy(&arp_packet.spa, sender_ip, sizeof(arp_packet.spa));
-	memcpy(&arp_packet.tpa, &((struct sockaddr_in *)dst_info->ai_addr)->sin_addr,
+	memcpy(&arp_packet.tpa,
+		   &((struct sockaddr_in *)dst_info->ai_addr)->sin_addr.s_addr,
 		   sizeof(arp_packet.tpa));
 	/* Target hardware address (tpa) = don't care */
 
