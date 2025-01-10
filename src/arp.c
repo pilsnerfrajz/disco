@@ -7,8 +7,10 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#ifdef __APPLE__
 #include <net/if_dl.h>	  /* sockaddr_dl */
 #include <net/if_types.h> /* IFT_ETHER */
+#endif
 
 #include <pcap/pcap.h>
 
@@ -34,7 +36,9 @@ int arp(char *address)
 		return STRUCT_ERROR;
 	}
 
-	int ret = get_mac_addr((struct sockaddr_in *)dst_info->ai_addr);
+	u_int8_t spa[4];
+	u_int8_t sha[6];
+	int ret = get_arp_details((struct sockaddr_in *)dst_info->ai_addr, spa, sha);
 
 	freeaddrinfo(dst_info);
 	return ret;
@@ -45,7 +49,7 @@ int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
 	int src_net = ntohl(src) & ntohl(mask);
 	int dst_net = ntohl(dst) & ntohl(mask);
 
-	printf("src_net: %08x, dst_net: %08x\n", src_net, dst_net);
+	// printf("src_net: %08x, dst_net: %08x\n", src_net, dst_net);
 
 	if (src_net == dst_net)
 	{
@@ -54,7 +58,8 @@ int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
 	return -1;
 }
 
-int get_mac_addr(struct sockaddr_in *dst)
+int get_arp_details(struct sockaddr_in *dst, u_int8_t *sender_ip,
+					u_int8_t *sender_mac)
 {
 	struct ifaddrs *ifap;
 	struct ifaddrs *ifa;
@@ -64,8 +69,6 @@ int get_mac_addr(struct sockaddr_in *dst)
 		perror("getifaddrs");
 		return STRUCT_ERROR;
 	}
-
-	// TODO save IP and MAC.
 
 	/* Bools for checking if we have wanted info */
 	int net_mask = 0;
@@ -80,13 +83,10 @@ int get_mac_addr(struct sockaddr_in *dst)
 	for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next)
 	{
 		/* Check if interface is loopback. Continue if it is */
-		if (ip_addr)
+		if (ip_addr && (((ntohl(ip->sin_addr.s_addr) & 0xFF000000) == 0x7F000000)))
 		{
-			if (((ntohl(ip->sin_addr.s_addr) & 0xFF000000) == 0x7F000000))
-			{
-				ip_addr = 0;
-				continue;
-			}
+			ip_addr = 0;
+			continue;
 		}
 
 		if (ip_addr && mac_addr && net_mask)
@@ -96,14 +96,13 @@ int get_mac_addr(struct sockaddr_in *dst)
 								dst->sin_addr.s_addr,
 								mask->sin_addr.s_addr) != 0)
 			{
-				printf("ARP is not possible!\n");
 				net_mask = 0;
 				ip_addr = 0;
 				mac_addr = 0;
 				continue;
 			}
 
-			printf("ARP is possible for:\nInterface: %s\n", iface);
+			/*printf("ARP is possible for:\nInterface: %s\n", iface);
 
 			char print_ip[INET_ADDRSTRLEN];
 			if (inet_ntop(AF_INET, &ip->sin_addr.s_addr, print_ip, INET_ADDRSTRLEN) == NULL)
@@ -120,7 +119,18 @@ int get_mac_addr(struct sockaddr_in *dst)
 			printf("MASK: %s\n", print_mask);
 
 			printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-				   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+				   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);*/
+
+			/* Buffers must be 4 and 6 bytes */
+			if (sizeof(sender_ip) >= 4 && sizeof(sender_mac) >= 6)
+			{
+				memcpy(sender_ip, &ip->sin_addr.s_addr, 4);
+				memcpy(sender_mac, mac, 6);
+			}
+			else
+			{
+				return -1;
+			}
 
 			freeifaddrs(ifap);
 			return SUCCESS;
@@ -138,7 +148,8 @@ int get_mac_addr(struct sockaddr_in *dst)
 			}
 		}
 
-		/* AF_LINK = macOS interface */
+/* AF_LINK = macOS */
+#ifdef __APPLE__
 		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_LINK)
 		{
 			/* https://www.illumos.org/man/3SOCKET/sockaddr_dl */
@@ -151,8 +162,11 @@ int get_mac_addr(struct sockaddr_in *dst)
 				mac_addr = 1;
 			}
 		}
+#endif
 
-		/* Add Linux support ^ */
+#ifdef __LINUX__
+/* Add Linux support ^ */
+#endif
 
 		if (ifa->ifa_netmask != NULL && ifa->ifa_netmask->sa_family == AF_INET)
 		{
