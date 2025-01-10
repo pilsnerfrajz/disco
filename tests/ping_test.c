@@ -8,12 +8,12 @@ void ping_test(void)
 	if ((ret = ping("256.1.1.1", 3)) == 2)
 		printf("✅ IPv4 invalid IP test passed\n");
 	else
-		printf("❌ IPv4 invalid IP test failed\n");
+		printf("❌ IPv4 invalid IP test failed. Return code: %d\n", ret);
 
 	if ((ret = ping("2001:0db8::85a3::8a2e:0370:7334", 3)) == 2)
 		printf("✅ IPv6 invalid IP test passed\n");
 	else
-		printf("❌ IPv6 invalid IP test failed\n");
+		printf("❌ IPv6 invalid IP test failed. Return code: %d\n", ret);
 
 	if ((ret = ping("127.0.0.1", 3)) == 0)
 		printf("✅ IPv4 loopback ping test passed\n");
