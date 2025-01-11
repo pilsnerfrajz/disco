@@ -12,4 +12,10 @@
  */
 struct addrinfo *get_dst_addr_struct(char *, int);
 
+/**
+ * @brief Prints IPv4 addresses for debugging.
+ * @param s `sockaddr_in *` struct.
+ */
+void print_ip(struct sockaddr_in *);
+
 #endif
