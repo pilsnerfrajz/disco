@@ -55,7 +55,8 @@ typedef struct arp_frame_t
 	arp_packet_t arp_pkt;
 } arp_frame;
 
-int get_arp_details(struct sockaddr_in *, u_int8_t *, u_int8_t *);
+int get_arp_details(struct sockaddr_in *, u_int8_t *, u_int8_t *, char *,
+					size_t);
 int arp(char *);
 
 #endif
