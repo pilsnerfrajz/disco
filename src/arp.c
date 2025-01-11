@@ -213,7 +213,7 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *sender_ip,
 #endif
 
 /* UNTESTED */
-#ifdef __LINUX__
+#ifdef __linux__
 		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_PACKET)
 		{
 			/* https://www.illumos.org/man/3SOCKET/sockaddr_dl */
