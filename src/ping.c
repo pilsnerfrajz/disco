@@ -272,6 +272,7 @@ int ping(char *address, int tries)
 	if (rv == -1)
 	{
 		freeaddrinfo(dst_info);
+		close(sfd);
 		return SOCKET_ERROR;
 	}
 
@@ -279,6 +280,7 @@ int ping(char *address, int tries)
 	if (rv < 0)
 	{
 		freeaddrinfo(dst_info);
+		close(sfd);
 		return SOCKET_ERROR;
 	}
 
@@ -333,6 +335,7 @@ int ping(char *address, int tries)
 			if (rv == -1)
 			{
 				freeaddrinfo(dst_info);
+				close(sfd);
 				return SOCKET_ERROR;
 			}
 
