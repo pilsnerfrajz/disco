@@ -104,11 +104,11 @@ int arp(char *address)
 
 	pcap_t *handle = pcap_open_live(if_name, ETH_FRAME_SIZE, 0, CAP_TIMEOUT,
 									errbuf);
-
 	if (handle == NULL)
 	{
 		freeaddrinfo(dst_info);
 		free(if_name);
+		fprintf(stderr, "Pcap_open_live error: %s\n", errbuf);
 		return -1; // TODO
 	}
 
@@ -184,25 +184,6 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 				mac_addr = 0;
 				continue;
 			}
-
-			/*printf("ARP is possible for:\nInterface: %s\n", iface);
-
-			char print_ip[INET_ADDRSTRLEN];
-			if (inet_ntop(AF_INET, &ip->sin_addr.s_addr, print_ip, INET_ADDRSTRLEN) == NULL)
-			{
-				perror("inet_ntop");
-			}
-			printf("IP: %s\n", print_ip);
-
-			char print_mask[INET_ADDRSTRLEN];
-			if (inet_ntop(AF_INET, &mask->sin_addr, print_mask, INET_ADDRSTRLEN) == NULL)
-			{
-				perror("inet_ntop");
-			}
-			printf("MASK: %s\n", print_mask);
-
-			printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-				   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);*/
 
 			/* Buffers must be 4 and 6 bytes */
 			if (sizeof(src_ip) >= 4 && sizeof(src_mac) >= 6)
