@@ -22,8 +22,7 @@ typedef struct ethernet_header
 } ethernet_header_t;
 
 /**
- * @brief ARP packet according to RFC 826. Allocate memory for variable fields
- * dynamically.
+ * @brief ARP packet according to RFC 826.
  */
 typedef struct arp_packet
 {
@@ -53,7 +52,7 @@ typedef struct arp_packet
 typedef struct arp_frame_t
 {
 	ethernet_header_t eth_hdr;
-	arp_packet_t arp_data;
+	arp_packet_t arp_pkt;
 } arp_frame;
 
 int get_arp_details(struct sockaddr_in *, u_int8_t *, u_int8_t *);
