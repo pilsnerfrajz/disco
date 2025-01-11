@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <stdlib.h>
 
 #ifdef __APPLE__
 #include <net/if_dl.h>	  /* sockaddr_dl */
@@ -26,18 +27,13 @@
 #define ETH_TYPE_IP4 0x0800
 #define ETH_TYPE_ARP 0x0806
 
+#define IF_NAME_SIZE 32 /* Should be large enough for interface names */
+
+#define ETH_FRAME_SIZE 1518 /* https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_II */
+#define CAP_TIMEOUT 1000	/* Milliseconds */
+
 int arp(char *address)
 {
-	/*char errbuf[PCAP_ERRBUF_SIZE];
-	int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
-	if (rv != 0)
-	{
-		fprintf(stderr, "Pcap_init error: %s\n", errbuf);
-		return -1;
-	}*/
-
-	// pcap_inject();
-
 	struct addrinfo *dst_info = get_dst_addr_struct(address, SOCK_DGRAM);
 	if (dst_info == NULL)
 	{
@@ -47,11 +43,19 @@ int arp(char *address)
 
 	u_int8_t sender_ip[4];
 	u_int8_t sender_mac[6];
+	char *if_name = malloc(IF_NAME_SIZE);
+	if (if_name == NULL)
+	{
+		freeaddrinfo(dst_info);
+		return -1; // TODO
+	}
+
 	int ret = get_arp_details((struct sockaddr_in *)dst_info->ai_addr,
-							  sender_ip, sender_mac);
+							  sender_ip, sender_mac, if_name, IF_NAME_SIZE);
 	if (ret != SUCCESS)
 	{
 		freeaddrinfo(dst_info);
+		free(if_name);
 		return -1; // TODO
 	}
 
@@ -88,7 +92,38 @@ int arp(char *address)
 		.arp_pkt = arp_packet,
 	};
 
+	/* Initialize library */
+	char errbuf[PCAP_ERRBUF_SIZE];
+	int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
+	if (rv != 0)
+	{
+		fprintf(stderr, "Pcap_init error: %s\n", errbuf);
+		free(if_name);
+		return -1;
+	}
+
+	pcap_t *handle = pcap_open_live(if_name, ETH_FRAME_SIZE, 0, CAP_TIMEOUT,
+									errbuf);
+
+	if (handle == NULL)
+	{
+		freeaddrinfo(dst_info);
+		free(if_name);
+		return -1; // TODO
+	}
+
+	if (pcap_inject(handle, &arp_frame, sizeof(arp_frame)) < 0)
+	{
+		freeaddrinfo(dst_info);
+		free(if_name);
+		fprintf(stderr, "Pcap_inject error: %s\n", pcap_geterr(handle));
+		pcap_close(handle);
+		return -1; // TODO
+	}
+
+	pcap_close(handle);
 	freeaddrinfo(dst_info);
+	free(if_name);
 	return SUCCESS;
 }
 
@@ -104,8 +139,8 @@ int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
 	return -1; // TODO ??
 }
 
-int get_arp_details(struct sockaddr_in *dst, u_int8_t *sender_ip,
-					u_int8_t *sender_mac)
+int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
+					u_int8_t *src_mac, char *if_name, size_t if_size)
 {
 	struct ifaddrs *ifap;
 	struct ifaddrs *ifa;
@@ -170,13 +205,20 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *sender_ip,
 				   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);*/
 
 			/* Buffers must be 4 and 6 bytes */
-			if (sizeof(sender_ip) >= 4 && sizeof(sender_mac) >= 6)
+			if (sizeof(src_ip) >= 4 && sizeof(src_mac) >= 6)
 			{
-				memcpy(sender_ip, &ip->sin_addr.s_addr, 4);
-				memcpy(sender_mac, mac, 6);
+				memcpy(src_ip, &ip->sin_addr.s_addr, 4);
+				memcpy(src_mac, mac, 6);
 			}
 			else
 			{
+				return -1; // TODO
+			}
+
+			/* Copy interface name to if_name */
+			if (snprintf(if_name, if_size, "%s", iface) >= (int)if_size)
+			{
+				freeifaddrs(ifap);
 				return -1; // TODO
 			}
 
