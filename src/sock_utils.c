@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string.h>
+#include "../include/sock_utils.h"
 
 struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 {
