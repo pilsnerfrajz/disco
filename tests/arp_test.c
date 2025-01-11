@@ -5,7 +5,7 @@ void arp_test(void)
 {
 	int ret;
 	printf("-- ARP TESTS --\n");
-	if ((ret = arp("192.168.1.100") == 0))
+	if ((ret = arp("192.168.1.1") == 0))
 		printf("✅ Local IP supports ARP test: Passed\n");
 	else
 		printf("❌ Local IP supports ARP test: Failed. Return code: %d\n", ret);
