@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include "../include/sock_utils.h"
 
 struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
@@ -36,4 +37,13 @@ struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 	}
 
 	return temp;
+}
+
+void print_ip(struct sockaddr_in *s)
+{
+	char ip_str[INET_ADDRSTRLEN];
+	if (inet_ntop(AF_INET, &s->sin_addr, ip_str, INET_ADDRSTRLEN) != NULL)
+	{
+		printf("%s\n", ip_str);
+	}
 }
