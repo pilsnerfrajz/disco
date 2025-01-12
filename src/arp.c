@@ -8,6 +8,9 @@
 #include <netdb.h>
 #include <stdlib.h>
 
+#include <signal.h> /* Alarm to break pcap_loop */
+#include <unistd.h> /* alarm() */
+
 #ifdef __APPLE__
 #include <net/if_dl.h>	  /* sockaddr_dl */
 #include <net/if_types.h> /* IFT_ETHER */
@@ -26,11 +29,27 @@
 
 #define ETH_TYPE_IP4 0x0800
 #define ETH_TYPE_ARP 0x0806
-
-#define IF_NAME_SIZE 32 /* Should be large enough for interface names */
-
+#define IF_NAME_SIZE 32		/* Should be large enough for interface names */
 #define ETH_FRAME_SIZE 1518 /* https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_II */
 #define CAP_TIMEOUT 1000	/* Milliseconds */
+#define ALARM_SEC 1
+
+static pcap_t *handle;
+
+/* Callback function for processing the received frames */
+void process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
+				 const u_char *bytes)
+{
+	printf("Processing packet...\n");
+	return;
+}
+
+void break_capture(int signum)
+{
+	printf("Break cap\n");
+	pcap_breakloop(handle);
+	return;
+}
 
 int arp(char *address)
 {
@@ -102,8 +121,8 @@ int arp(char *address)
 		return -1;
 	}
 
-	pcap_t *handle = pcap_open_live(if_name, ETH_FRAME_SIZE, 0, CAP_TIMEOUT,
-									errbuf);
+	handle = pcap_open_live(if_name, ETH_FRAME_SIZE, 0, CAP_TIMEOUT,
+							errbuf);
 	if (handle == NULL)
 	{
 		freeaddrinfo(dst_info);
@@ -120,6 +139,14 @@ int arp(char *address)
 		pcap_close(handle);
 		return -1; // TODO
 	}
+
+	/* Stop sniff if timeout */
+	signal(SIGALRM, break_capture);
+
+	/* Start capture timer */
+	alarm(ALARM_SEC);
+
+	rv = pcap_loop(handle, 0, process_pkt, NULL);
 
 	pcap_close(handle);
 	freeaddrinfo(dst_info);
