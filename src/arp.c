@@ -53,7 +53,6 @@ void process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	/* Cast user to original struct */
 	struct callback_data *c_data = (struct callback_data *)user;
 
-	/* Cast packet to Ethernet header to check meta data */
 	struct arp_frame *reply = (struct arp_frame *)bytes;
 
 	if (reply->eth_hdr.ptype == ntohs(ETH_TYPE_ARP) &&
