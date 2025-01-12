@@ -32,21 +32,38 @@
 #define IF_NAME_SIZE 32		/* Should be large enough for interface names */
 #define ETH_FRAME_SIZE 1518 /* https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_II */
 #define CAP_TIMEOUT 1000	/* Milliseconds */
-#define ALARM_SEC 1
+#define ALARM_SEC 2
 
 static pcap_t *handle;
-
-void print_packet_info(const u_char *packet, const struct pcap_pkthdr packet_header)
+struct callback_data
 {
-	printf("Packet capture length: %d\n", packet_header.caplen);
-	printf("Packet total length %d\n", packet_header.len);
-}
+	struct arp_frame arp_frame;
+	int reply_found;
+};
 
 /* Callback function for processing the received frames */
 void process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 				 const u_char *bytes)
 {
-	print_packet_info(bytes, *pkt_hdr);
+	/* Captured packet is too small */
+	if (pkt_hdr->caplen < sizeof(struct arp_frame))
+	{
+		return;
+	}
+	/* Cast user to original struct */
+	struct callback_data *c_data = (struct callback_data *)user;
+
+	/* Cast packet to Ethernet header to check meta data */
+	struct arp_frame *reply = (struct arp_frame *)bytes;
+
+	if (reply->eth_hdr.ptype == ntohs(ETH_TYPE_ARP) &&
+		memcmp(reply->eth_hdr.dst, c_data->arp_frame.eth_hdr.src, sizeof(reply->eth_hdr.dst)) == 0 &&
+		memcmp(reply->arp_pkt.tpa, c_data->arp_frame.arp_pkt.spa, sizeof(reply->arp_pkt.tpa)) == 0 &&
+		memcmp(reply->arp_pkt.spa, c_data->arp_frame.arp_pkt.tpa, sizeof(reply->arp_pkt.spa)) == 0)
+	{
+		c_data->reply_found = 1;
+		pcap_breakloop(handle);
+	}
 	return;
 }
 
@@ -111,7 +128,7 @@ int arp(char *address)
 	/* arp_packet.tha already zero from memset on struct */
 
 	/* Prepare frame */
-	struct arp_frame_t arp_frame = {
+	struct arp_frame arp_frame = {
 		.eth_hdr = ethernet_header,
 		.arp_pkt = arp_packet,
 	};
@@ -153,8 +170,6 @@ int arp(char *address)
 			 sender_mac[0], sender_mac[1], sender_mac[2], sender_mac[3],
 			 sender_mac[4], sender_mac[5]);
 
-	printf("Filter: %s\n", filter_expr);
-
 	rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
 	if (rv != 0)
 	{
@@ -181,7 +196,12 @@ int arp(char *address)
 	/* Start capture timer */
 	alarm(ALARM_SEC);
 
-	rv = pcap_loop(handle, 0, process_pkt, NULL);
+	/* Pass Ethernet header to check reply reversed in reply */
+	struct callback_data c_data = {0};
+	memcpy(&c_data.arp_frame, &arp_frame, sizeof(c_data.arp_frame));
+	c_data.reply_found = 0;
+
+	rv = pcap_loop(handle, 0, process_pkt, (u_char *)&c_data);
 	if (rv == PCAP_ERROR)
 	{
 		freeaddrinfo(dst_info);
@@ -194,7 +214,13 @@ int arp(char *address)
 	pcap_close(handle);
 	freeaddrinfo(dst_info);
 	free(if_name);
-	return SUCCESS;
+
+	if (c_data.reply_found)
+	{
+		return SUCCESS;
+	}
+
+	return -1; // TODO
 }
 
 int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
