@@ -166,7 +166,6 @@ int arp(char *address)
 		return -1; // TODO
 	}
 
-	/* Init to zeroes */
 	struct bpf_program filter;
 	char filter_expr[30];
 	snprintf(filter_expr, sizeof(filter_expr),
@@ -200,7 +199,6 @@ int arp(char *address)
 	/* Start capture timer */
 	alarm(ALARM_SEC);
 
-	/* Pass Ethernet header to check reply reversed in reply */
 	struct callback_data c_data = {0};
 	memcpy(&c_data.arp_frame, &arp_frame, sizeof(c_data.arp_frame));
 	c_data.reply_found = 0;
