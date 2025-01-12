@@ -56,6 +56,7 @@ void process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	struct arp_frame *reply = (struct arp_frame *)bytes;
 
 	if (reply->eth_hdr.ptype == ntohs(ETH_TYPE_ARP) &&
+		reply->arp_pkt.op == ntohs(2) &&
 		memcmp(reply->eth_hdr.dst, c_data->arp_frame.eth_hdr.src,
 			   sizeof(reply->eth_hdr.dst)) == 0 &&
 		memcmp(reply->arp_pkt.tpa, c_data->arp_frame.arp_pkt.spa,
