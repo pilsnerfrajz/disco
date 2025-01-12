@@ -36,17 +36,22 @@
 
 static pcap_t *handle;
 
+void print_packet_info(const u_char *packet, const struct pcap_pkthdr packet_header)
+{
+	printf("Packet capture length: %d\n", packet_header.caplen);
+	printf("Packet total length %d\n", packet_header.len);
+}
+
 /* Callback function for processing the received frames */
 void process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 				 const u_char *bytes)
 {
-	printf("Processing packet...\n");
+	print_packet_info(bytes, *pkt_hdr);
 	return;
 }
 
 void break_capture(int signum)
 {
-	printf("Break cap\n");
 	pcap_breakloop(handle);
 	return;
 }
@@ -140,6 +145,36 @@ int arp(char *address)
 		return -1; // TODO
 	}
 
+	/* Init to zeroes */
+	struct bpf_program filter;
+	char filter_expr[30];
+	snprintf(filter_expr, sizeof(filter_expr),
+			 "ether dst %02x:%02x:%02x:%02x:%02x:%02x",
+			 sender_mac[0], sender_mac[1], sender_mac[2], sender_mac[3],
+			 sender_mac[4], sender_mac[5]);
+
+	printf("Filter: %s\n", filter_expr);
+
+	rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
+	if (rv != 0)
+	{
+		freeaddrinfo(dst_info);
+		free(if_name);
+		fprintf(stderr, "Pcap_compile error: %s\n", pcap_geterr(handle));
+		pcap_close(handle);
+		return -1; // TODO
+	}
+
+	rv = pcap_setfilter(handle, &filter);
+	if (rv != 0)
+	{
+		freeaddrinfo(dst_info);
+		free(if_name);
+		fprintf(stderr, "Pcap_compile error: %s\n", pcap_geterr(handle));
+		pcap_close(handle);
+		return -1; // TODO
+	}
+
 	/* Stop sniff if timeout */
 	signal(SIGALRM, break_capture);
 
@@ -147,6 +182,14 @@ int arp(char *address)
 	alarm(ALARM_SEC);
 
 	rv = pcap_loop(handle, 0, process_pkt, NULL);
+	if (rv == PCAP_ERROR)
+	{
+		freeaddrinfo(dst_info);
+		free(if_name);
+		fprintf(stderr, "Pcap_loop error: %s\n", pcap_geterr(handle));
+		pcap_close(handle);
+		return -1;
+	}
 
 	pcap_close(handle);
 	freeaddrinfo(dst_info);
