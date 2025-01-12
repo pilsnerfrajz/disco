@@ -50,5 +50,10 @@ void arp_test(void)
 	if (arp("192.168.1.1") == 0)
 		printf("✅ ARP request received reply test: Passed\n");
 	else
-		printf("✅ ARP request received reply test: Failed. Return code: %d\n", ret);
+		printf("❌ ARP request received reply test: Failed. Return code: %d\n", ret);
+
+	if (arp("192.168.1.100") != 0)
+		printf("✅ ARP request down host test: Passed\n");
+	else
+		printf("❌ ARP request down host test: Failed. Return code: %d\n", ret);
 }
