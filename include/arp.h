@@ -49,11 +49,11 @@ typedef struct arp_packet
 /**
  * @brief Combined Ethernet header and ARP packet.
  */
-typedef struct arp_frame_t
+typedef struct arp_frame
 {
 	ethernet_header_t eth_hdr;
 	arp_packet_t arp_pkt;
-} arp_frame;
+} arp_frame_t;
 
 int get_arp_details(struct sockaddr_in *, u_int8_t *, u_int8_t *, char *,
 					size_t);
