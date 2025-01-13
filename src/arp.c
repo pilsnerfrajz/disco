@@ -167,9 +167,9 @@ int arp(char *address)
 	}
 
 	struct bpf_program filter;
-	char filter_expr[30];
+	char filter_expr[64];
 	snprintf(filter_expr, sizeof(filter_expr),
-			 "ether dst %02x:%02x:%02x:%02x:%02x:%02x",
+			 "arp and ether dst %02x:%02x:%02x:%02x:%02x:%02x",
 			 sender_mac[0], sender_mac[1], sender_mac[2], sender_mac[3],
 			 sender_mac[4], sender_mac[5]);
 
@@ -193,15 +193,15 @@ int arp(char *address)
 		return -1; // TODO
 	}
 
+	struct callback_data c_data = {0};
+	memcpy(&c_data.arp_frame, &arp_frame, sizeof(c_data.arp_frame));
+	c_data.reply_found = 0;
+
 	/* Stop sniff if timeout */
 	signal(SIGALRM, break_capture);
 
 	/* Start capture timer */
 	alarm(ALARM_SEC);
-
-	struct callback_data c_data = {0};
-	memcpy(&c_data.arp_frame, &arp_frame, sizeof(c_data.arp_frame));
-	c_data.reply_found = 0;
 
 	rv = pcap_loop(handle, 0, process_pkt, (u_char *)&c_data);
 	if (rv == PCAP_ERROR)
