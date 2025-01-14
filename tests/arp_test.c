@@ -5,10 +5,10 @@
 
 int arp_possible_test(char *address)
 {
-	struct addrinfo *dst_info = get_dst_addr_struct(address, SOCK_DGRAM);
-	if (dst_info == NULL)
+	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_DGRAM);
+	if (dst == NULL)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst);
 		return -1;
 	}
 
@@ -18,15 +18,15 @@ int arp_possible_test(char *address)
 	char *if_name = malloc(if_size);
 	if (if_name == NULL)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst);
 		return -1;
 	}
 
-	int ret = get_arp_details((struct sockaddr_in *)dst_info->ai_addr,
+	int ret = get_arp_details((struct sockaddr_in *)dst->ai_addr,
 							  sender_ip, sender_mac, if_name, if_size);
 	if (ret != 0)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst);
 		free(if_name);
 		return -1;
 	}
