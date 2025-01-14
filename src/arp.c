@@ -82,7 +82,7 @@ int arp(char *address)
 	struct addrinfo *dst_info = get_dst_addr_struct(address, SOCK_DGRAM);
 	if (dst_info == NULL)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst_info);
 		return STRUCT_ERROR;
 	}
 
@@ -91,7 +91,7 @@ int arp(char *address)
 	char *if_name = malloc(IF_NAME_SIZE);
 	if (if_name == NULL)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst_info);
 		return -1; // TODO
 	}
 
@@ -99,7 +99,7 @@ int arp(char *address)
 							  sender_ip, sender_mac, if_name, IF_NAME_SIZE);
 	if (ret != SUCCESS)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst_info);
 		free(if_name);
 		return -1; // TODO
 	}
@@ -137,6 +137,8 @@ int arp(char *address)
 		.arp_pkt = arp_packet,
 	};
 
+	free_dst_addr_struct(dst_info);
+
 	/* Initialize library */
 	char errbuf[PCAP_ERRBUF_SIZE];
 	int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
@@ -151,7 +153,6 @@ int arp(char *address)
 							errbuf);
 	if (handle == NULL)
 	{
-		freeaddrinfo(dst_info);
 		free(if_name);
 		fprintf(stderr, "Pcap_open_live error: %s\n", errbuf);
 		return -1; // TODO
@@ -159,8 +160,6 @@ int arp(char *address)
 
 	if (pcap_inject(handle, &arp_frame, sizeof(arp_frame)) < 0)
 	{
-		freeaddrinfo(dst_info);
-		free(if_name);
 		fprintf(stderr, "Pcap_inject error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
 		return -1; // TODO
@@ -176,8 +175,6 @@ int arp(char *address)
 	rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
 	if (rv != 0)
 	{
-		freeaddrinfo(dst_info);
-		free(if_name);
 		fprintf(stderr, "Pcap_compile error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
 		return -1; // TODO
@@ -186,8 +183,6 @@ int arp(char *address)
 	rv = pcap_setfilter(handle, &filter);
 	if (rv != 0)
 	{
-		freeaddrinfo(dst_info);
-		free(if_name);
 		fprintf(stderr, "Pcap_compile error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
 		return -1; // TODO
@@ -206,16 +201,12 @@ int arp(char *address)
 	rv = pcap_loop(handle, 0, process_pkt, (u_char *)&c_data);
 	if (rv == PCAP_ERROR)
 	{
-		freeaddrinfo(dst_info);
-		free(if_name);
 		fprintf(stderr, "Pcap_loop error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
 		return -1;
 	}
 
 	pcap_close(handle);
-	freeaddrinfo(dst_info);
-	free(if_name);
 
 	if (c_data.reply_found)
 	{
