@@ -1,5 +1,5 @@
-#ifndef SOCK_UTILS_H
-#define SOCK_UTILS_H
+#ifndef UTILS_H
+#define UTILS_H
 
 /**
  * @brief Gets a pointer to an addrinfo structure for the destination

@@ -25,7 +25,7 @@
 #include <pcap/pcap.h>
 
 #include "../include/arp.h"
-#include "../include/sock_utils.h"
+#include "../include/utils.h"
 
 #define ETH_TYPE_IP4 0x0800
 #define ETH_TYPE_ARP 0x0806

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
-#include "../include/sock_utils.h"
+#include "../include/utils.h"
 
 void free_dst_addr_struct(struct addrinfo *dst)
 {

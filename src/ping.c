@@ -14,7 +14,7 @@
 #include <sys/time.h>
 #include <errno.h>
 
-#include "../include/sock_utils.h"
+#include "../include/utils.h"
 
 // return codes
 #define PING_SUCCESS 0
