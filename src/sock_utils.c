@@ -4,7 +4,22 @@
 #include <netdb.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <stdlib.h>
 #include "../include/sock_utils.h"
+
+void free_dst_addr_struct(struct addrinfo *dst)
+{
+	if (dst == NULL)
+	{
+		return;
+	}
+	if (dst->ai_addr != NULL)
+	{
+		free(dst->ai_addr);
+	}
+
+	free(dst);
+}
 
 struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 {
@@ -33,10 +48,29 @@ struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 
 	if (temp == NULL)
 	{
+		freeaddrinfo(dst_info);
 		return NULL;
 	}
 
-	return temp;
+	struct addrinfo *res = malloc(sizeof(struct addrinfo));
+	if (res == NULL)
+	{
+		freeaddrinfo(dst_info);
+		return NULL;
+	}
+
+	res->ai_addr = malloc(sizeof(struct addrinfo));
+	if (res->ai_addr == NULL)
+	{
+		freeaddrinfo(dst_info);
+		return NULL;
+	}
+	memcpy(res->ai_addr, temp->ai_addr, sizeof(struct addrinfo));
+	res->ai_family = temp->ai_family;
+	res->ai_addrlen = temp->ai_addrlen;
+
+	freeaddrinfo(dst_info);
+	return res;
 }
 
 void print_ip(struct sockaddr_in *s)
