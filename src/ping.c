@@ -61,13 +61,13 @@ int validate_ip(char *ip)
 /**
  * @brief Gets a proto object for the ICMP or ICMP6 protocols.
  *
- * @param dst_info `addrinfo*` struct of the target address.
+ * @param dst `addrinfo*` struct of the target address.
  * @return `struct protoent*` on success or `NULL` if an error occurs.
  */
-struct protoent *get_proto(struct addrinfo *dst_info)
+struct protoent *get_proto(struct addrinfo *dst)
 {
 	struct protoent *protocol;
-	if (dst_info->ai_family == AF_INET)
+	if (dst->ai_family == AF_INET)
 	{
 		protocol = getprotobyname("icmp");
 	}
@@ -247,39 +247,38 @@ int ping(char *address, int tries)
 		return INVALID_IP;
 	}
 
-	struct addrinfo *dst_info = get_dst_addr_struct(address, SOCK_DGRAM);
-	if (dst_info == NULL)
+	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_DGRAM);
+	if (dst == NULL)
 	{
-		freeaddrinfo(dst_info);
 		return STRUCT_ERROR;
 	}
 
-	struct protoent *protocol = get_proto(dst_info);
+	struct protoent *protocol = get_proto(dst);
 	if (protocol == NULL)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst);
 		return STRUCT_ERROR;
 	}
 
-	int sfd = socket(dst_info->ai_family, SOCK_DGRAM, protocol->p_proto);
+	int sfd = socket(dst->ai_family, SOCK_DGRAM, protocol->p_proto);
 	if (sfd == -1)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst);
 		return SOCKET_ERROR;
 	}
 
 	rv = set_socket_options(sfd);
 	if (rv == -1)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst);
 		close(sfd);
 		return SOCKET_ERROR;
 	}
 
-	rv = connect(sfd, dst_info->ai_addr, dst_info->ai_addrlen);
+	rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
 	if (rv < 0)
 	{
-		freeaddrinfo(dst_info);
+		free_dst_addr_struct(dst);
 		close(sfd);
 		return SOCKET_ERROR;
 	}
@@ -287,8 +286,10 @@ int ping(char *address, int tries)
 	int seq = 0;
 	int sent_bytes;
 	int host_is_up = 0;
-	if (dst_info->ai_family == AF_INET)
+	if (dst->ai_family == AF_INET)
 	{
+		free_dst_addr_struct(dst);
+
 		for (int attempt = 0; attempt < tries; attempt++)
 		{
 			struct icmp icmp4_req_hdr = create_icmp4_echo_req_hdr(++seq);
@@ -323,7 +324,8 @@ int ping(char *address, int tries)
 			}
 		}
 	}
-	else
+
+	if (dst->ai_family == AF_INET6)
 	{
 		for (int attempt = 0; attempt < tries; attempt++)
 		{
@@ -334,13 +336,13 @@ int ping(char *address, int tries)
 			int rv = getsockname(sfd, (struct sockaddr *)&src, &sock_len);
 			if (rv == -1)
 			{
-				freeaddrinfo(dst_info);
+				free_dst_addr_struct(dst);
 				close(sfd);
 				return SOCKET_ERROR;
 			}
 
-			// parse the dst_info struct to get a suitable structure to use in pseudo.
-			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst_info->ai_addr;
+			// parse the dst struct to get a suitable structure to use in pseudo.
+			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst->ai_addr;
 			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
 			icmp6_pseudo_hdr pseudo_hdr = {
 				.source = src.sin6_addr,
@@ -379,9 +381,10 @@ int ping(char *address, int tries)
 				break;
 			}
 		}
+
+		free_dst_addr_struct(dst);
 	}
 
-	freeaddrinfo(dst_info);
 	close(sfd);
 
 	if (host_is_up)
