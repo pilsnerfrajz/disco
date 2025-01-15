@@ -15,13 +15,7 @@
 #include <errno.h>
 
 #include "../include/utils.h"
-
-// return codes
-#define PING_SUCCESS 0
-#define NO_RESPONSE 1
-#define INVALID_IP 2
-#define STRUCT_ERROR 3
-#define SOCKET_ERROR 4
+#include "../include/error.h"
 
 #define TIMEOUT_SECONDS 2
 
@@ -241,23 +235,23 @@ struct icmp6_hdr create_icmp6_echo_req_hdr(int seq)
 
 int ping(char *address, int tries)
 {
-	int rv = validate_ip(address);
-	if (rv == -1)
-	{
-		return INVALID_IP;
-	}
+	int rv; /* = validate_ip(address);
+	 if (rv == -1)
+	 {
+		 return UN;
+	 }*/
 
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_DGRAM);
 	if (dst == NULL)
 	{
-		return STRUCT_ERROR;
+		return UNKNOWN_HOST;
 	}
 
 	struct protoent *protocol = get_proto(dst);
 	if (protocol == NULL)
 	{
 		free_dst_addr_struct(dst);
-		return STRUCT_ERROR;
+		return PROTO_NOT_FOUND;
 	}
 
 	int sfd = socket(dst->ai_family, SOCK_DGRAM, protocol->p_proto);
@@ -388,7 +382,7 @@ int ping(char *address, int tries)
 	close(sfd);
 
 	if (host_is_up)
-		return PING_SUCCESS;
+		return SUCCESS;
 
 	return NO_RESPONSE;
 }
