@@ -26,10 +26,11 @@
 
 #include "../include/arp.h"
 #include "../include/utils.h"
+#include "../include/error.h"
 
 #define ETH_TYPE_IP4 0x0800
 #define ETH_TYPE_ARP 0x0806
-#define IF_NAME_SIZE 32		/* Should be large enough for interface names */
+#define IF_NAME_SIZE 128	/* Should be large enough for interface names */
 #define ETH_FRAME_SIZE 1518 /* https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_II */
 #define CAP_TIMEOUT 1000	/* Milliseconds */
 #define ALARM_SEC 2
@@ -83,7 +84,7 @@ int arp(char *address)
 	if (dst_info == NULL)
 	{
 		free_dst_addr_struct(dst_info);
-		return STRUCT_ERROR;
+		return UNKNOWN_HOST;
 	}
 
 	u_int8_t sender_ip[4];
@@ -92,16 +93,16 @@ int arp(char *address)
 	if (if_name == NULL)
 	{
 		free_dst_addr_struct(dst_info);
-		return -1; // TODO
+		return MEM_ALLOC_ERROR;
 	}
 
 	int ret = get_arp_details((struct sockaddr_in *)dst_info->ai_addr,
 							  sender_ip, sender_mac, if_name, IF_NAME_SIZE);
-	if (ret != SUCCESS)
+	if (ret != ARP_SUPP)
 	{
 		free_dst_addr_struct(dst_info);
 		free(if_name);
-		return -1; // TODO
+		return ret;
 	}
 
 	struct ethernet_header ethernet_header;
@@ -144,9 +145,8 @@ int arp(char *address)
 	int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
 	if (rv != 0)
 	{
-		fprintf(stderr, "Pcap_init error: %s\n", errbuf);
 		free(if_name);
-		return -1;
+		return PCAP_INIT;
 	}
 
 	handle = pcap_open_live(if_name, ETH_FRAME_SIZE, 0, CAP_TIMEOUT,
@@ -154,15 +154,13 @@ int arp(char *address)
 	if (handle == NULL)
 	{
 		free(if_name);
-		fprintf(stderr, "Pcap_open_live error: %s\n", errbuf);
-		return -1; // TODO
+		return PCAP_OPEN;
 	}
 
 	if (pcap_inject(handle, &arp_frame, sizeof(arp_frame)) < 0)
 	{
-		fprintf(stderr, "Pcap_inject error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
-		return -1; // TODO
+		return PCAP_INJECT;
 	}
 
 	struct bpf_program filter;
@@ -175,17 +173,15 @@ int arp(char *address)
 	rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
 	if (rv != 0)
 	{
-		fprintf(stderr, "Pcap_compile error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
-		return -1; // TODO
+		return PCAP_FILTER;
 	}
 
 	rv = pcap_setfilter(handle, &filter);
 	if (rv != 0)
 	{
-		fprintf(stderr, "Pcap_compile error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
-		return -1; // TODO
+		return PCAP_FILTER;
 	}
 
 	struct callback_data c_data = {0};
@@ -201,9 +197,8 @@ int arp(char *address)
 	rv = pcap_loop(handle, 0, process_pkt, (u_char *)&c_data);
 	if (rv == PCAP_ERROR)
 	{
-		fprintf(stderr, "Pcap_loop error: %s\n", pcap_geterr(handle));
 		pcap_close(handle);
-		return -1;
+		return PCAP_LOOP;
 	}
 
 	pcap_close(handle);
@@ -213,7 +208,7 @@ int arp(char *address)
 		return SUCCESS;
 	}
 
-	return -1; // TODO
+	return NO_RESPONSE;
 }
 
 int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
@@ -225,7 +220,7 @@ int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
 	{
 		return 0;
 	}
-	return -1; // TODO ??
+	return -1;
 }
 
 int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
@@ -237,7 +232,7 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 	if (rv != 0)
 	{
 		perror("getifaddrs");
-		return STRUCT_ERROR;
+		return IFACE_ERROR;
 	}
 
 	/* Bools for checking if we have the wanted info */
@@ -282,18 +277,18 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 			}
 			else
 			{
-				return -1; // TODO
+				return BAD_BUF_SIZE;
 			}
 
 			/* Copy interface name to if_name */
 			if (snprintf(if_name, if_size, "%s", iface) >= (int)if_size)
 			{
 				freeifaddrs(ifap);
-				return -1; // TODO
+				return BAD_BUF_SIZE;
 			}
 
 			freeifaddrs(ifap);
-			return SUCCESS;
+			return ARP_SUPP;
 		}
 
 		if (ifa->ifa_name != NULL)
@@ -353,5 +348,5 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 	}
 
 	freeifaddrs(ifap);
-	return -1; // TODO
+	return ARP_NOT_SUPP;
 }
