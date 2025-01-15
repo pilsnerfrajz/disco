@@ -1,6 +1,3 @@
-# inspiration from 
-# https://www.lucavall.in/blog/crafting-clean-maintainable-understandable-makefile-for-c-project
-
 NAME := disco
 SRC_DIR := src
 BUILD_DIR := build
