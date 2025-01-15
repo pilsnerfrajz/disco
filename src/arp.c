@@ -56,19 +56,36 @@ void process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 
 	struct arp_frame *reply = (struct arp_frame *)bytes;
 
-	if (reply->eth_hdr.ptype == ntohs(ETH_TYPE_ARP) &&
-		reply->arp_pkt.op == ntohs(2) &&
-		memcmp(reply->eth_hdr.dst, c_data->arp_frame.eth_hdr.src,
-			   sizeof(reply->eth_hdr.dst)) == 0 &&
-		memcmp(reply->arp_pkt.tpa, c_data->arp_frame.arp_pkt.spa,
-			   sizeof(reply->arp_pkt.tpa)) == 0 &&
-		memcmp(reply->arp_pkt.spa, c_data->arp_frame.arp_pkt.tpa,
-			   sizeof(reply->arp_pkt.spa)) == 0)
+	if (reply->eth_hdr.ptype != ntohs(ETH_TYPE_ARP))
 	{
-		c_data->reply_found = 1;
-		pcap_breakloop(handle);
+		return;
 	}
-	return;
+
+	if (reply->arp_pkt.op != ntohs(2))
+	{
+		return;
+	}
+
+	if (memcmp(reply->eth_hdr.dst, c_data->arp_frame.eth_hdr.src,
+			   sizeof(reply->eth_hdr.dst)) != 0)
+	{
+		return;
+	}
+
+	if (memcmp(reply->arp_pkt.tpa, c_data->arp_frame.arp_pkt.spa,
+			   sizeof(reply->arp_pkt.tpa)) != 0)
+	{
+		return;
+	}
+
+	if (memcmp(reply->arp_pkt.spa, c_data->arp_frame.arp_pkt.tpa,
+			   sizeof(reply->arp_pkt.spa)) != 0)
+	{
+		return;
+	}
+
+	c_data->reply_found = 1;
+	pcap_breakloop(handle);
 }
 
 void break_capture(int signum)
