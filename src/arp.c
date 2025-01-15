@@ -166,8 +166,7 @@ int arp(char *address)
 		return PCAP_INIT;
 	}
 
-	handle = pcap_open_live(if_name, ETH_FRAME_SIZE, 0, CAP_TIMEOUT,
-							errbuf);
+	handle = pcap_open_live(if_name, ETH_FRAME_SIZE, 0, CAP_TIMEOUT, errbuf);
 	if (handle == NULL)
 	{
 		free(if_name);
@@ -289,15 +288,12 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 			}
 
 			/* Buffers must be 4 and 6 bytes */
-			if (sizeof(src_ip) >= 4 && sizeof(src_mac) >= 6)
-			{
-				memcpy(src_ip, &ip->sin_addr.s_addr, 4);
-				memcpy(src_mac, mac, 6);
-			}
-			else
+			if (sizeof(src_ip) < 4 && sizeof(src_mac) < 6)
 			{
 				return BAD_BUF_SIZE;
 			}
+			memcpy(src_ip, &ip->sin_addr.s_addr, 4);
+			memcpy(src_mac, mac, 6);
 
 			/* Copy interface name to if_name */
 			if (snprintf(if_name, if_size, "%s", iface) >= (int)if_size)
