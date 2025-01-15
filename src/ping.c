@@ -34,25 +34,6 @@ typedef struct icmp6_pseudo_hdr
 } icmp6_pseudo_hdr;
 
 /**
- * @brief Validates IP address strings. Supports IPv4 and IPv6.
- *
- * @param ip The IP address to validate.
- * @return `int` 0 on valid address. -1 if the address is invalid
- * or if an error occurs.
- */
-int validate_ip(char *ip)
-{
-	struct in_addr ipv4_dst;
-	struct in6_addr ipv6_dst;
-	if (inet_pton(AF_INET, ip, &(ipv4_dst)) == 1 ||
-		inet_pton(AF_INET6, ip, &(ipv6_dst)) == 1)
-	{
-		return 0;
-	}
-	return -1;
-}
-
-/**
  * @brief Gets a proto object for the ICMP or ICMP6 protocols.
  *
  * @param dst `addrinfo*` struct of the target address.
@@ -235,11 +216,7 @@ struct icmp6_hdr create_icmp6_echo_req_hdr(int seq)
 
 int ping(char *address, int tries)
 {
-	int rv; /* = validate_ip(address);
-	 if (rv == -1)
-	 {
-		 return UN;
-	 }*/
+	int rv;
 
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_DGRAM);
 	if (dst == NULL)

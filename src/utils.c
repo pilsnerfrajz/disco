@@ -81,3 +81,15 @@ void print_ip(struct sockaddr_in *s)
 		printf("%s\n", ip_str);
 	}
 }
+
+int validate_ip(char *ip)
+{
+	struct in_addr ipv4_dst;
+	struct in6_addr ipv6_dst;
+	if (inet_pton(AF_INET, ip, &(ipv4_dst)) == 1 ||
+		inet_pton(AF_INET6, ip, &(ipv6_dst)) == 1)
+	{
+		return 0;
+	}
+	return -1;
+}

@@ -27,4 +27,13 @@ void free_dst_addr_struct(struct addrinfo *);
  */
 void print_ip(struct sockaddr_in *);
 
+/**
+ * @brief Validates IP address strings. Supports IPv4 and IPv6.
+ *
+ * @param ip The IP address to validate.
+ * @return `int` 0 on valid address. -1 if the address is invalid
+ * or if an error occurs.
+ */
+int validate_ip(char *);
+
 #endif
