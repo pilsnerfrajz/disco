@@ -4,13 +4,6 @@
 #include <sys/types.h>
 #include <netdb.h>
 
-typedef enum err
-{
-	SUCCESS,
-	STRUCT_ERROR,
-	SOCKET_ERROR,
-} err_t;
-
 typedef struct ethernet_header
 {
 	/* Ethernet address of destination */
