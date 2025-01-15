@@ -218,6 +218,8 @@ int arp(char *address)
 		return PCAP_LOOP;
 	}
 
+	signal(SIGALRM, SIG_DFL);
+
 	pcap_close(handle);
 
 	if (c_data.reply_found)
