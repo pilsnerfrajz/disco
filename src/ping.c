@@ -231,10 +231,14 @@ int ping(char *address, int tries)
 		return PROTO_NOT_FOUND;
 	}
 
-	int sfd = socket(dst->ai_family, SOCK_DGRAM, protocol->p_proto);
+	int sfd = socket(dst->ai_family, SOCK_RAW, protocol->p_proto);
 	if (sfd == -1)
 	{
 		free_dst_addr_struct(dst);
+		if (errno == EPERM)
+		{
+			return PERMISSION_ERROR;
+		}
 		return SOCKET_ERROR;
 	}
 

@@ -22,7 +22,7 @@ test: dir $(TEST_OBJS) $(OBJS)
 	@$(CC) $(CFLAGS) -o $(TESTS_DIR)/$(BIN_DIR)/run_all_tests \
 	$(patsubst %,$(BUILD_DIR)/%, $(filter-out main.o, $(OBJS))) \
 	$(patsubst %,$(TESTS_DIR)/$(BUILD_DIR)/%, $(TEST_OBJS)) $(LDFLAGS)
-	@$(TESTS_DIR)/$(BIN_DIR)/run_all_tests
+	@sudo $(TESTS_DIR)/$(BIN_DIR)/run_all_tests
 
 $(TEST_OBJS):
 	@$(CC) $(CFLAGS) -o $(TESTS_DIR)/$(BUILD_DIR)/$@ -c $(TESTS_DIR)/$*.c

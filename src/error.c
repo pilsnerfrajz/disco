@@ -6,6 +6,7 @@ const char *const error_strings[] = {
 	"Success",
 	"No response from host",
 	"Invalid or unknown host",
+	"Permission denied, run with sudo",
 	"Error during socket operation",
 	"Error during protocol lookup",
 	"Error when allocating dynamic memory",
