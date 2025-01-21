@@ -18,6 +18,8 @@
 #include "../include/error.h"
 
 #define TIMEOUT_SECONDS 2
+#define ICMP_BUFSIZE 124
+#define REPLY_RETRIES 3
 
 /**
  * @brief ICMP6 pseudo header used when calculating the checksum
@@ -144,10 +146,17 @@ struct icmp create_icmp4_echo_req_hdr(int seq)
 struct icmp *get_icmp4_reply_hdr(int sfd)
 {
 	/* In case the captured packet is not a reply, try again */
-	for (int retry = 0; retry < 3; retry++)
+	for (int retry = 0; retry < REPLY_RETRIES; retry++)
 	{
-
-		char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
+		/*
+		 * Choose a buffer that should be large enough for most scenarios.
+		 * We only care about the ICMP header, but the packets may contain a
+		 * payload as well.
+		 * Maximum IP header size = 60 bytes
+		 * ICMP size for request and reply = 8 bytes
+		 * ICMP payload typically 56 bytes
+		 */
+		char recvbuf[ICMP_BUFSIZE];
 		int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
 		if (recv_bytes <= 0)
 		{
@@ -158,9 +167,17 @@ struct icmp *get_icmp4_reply_hdr(int sfd)
 		struct ip *ip_hdr = (struct ip *)recvbuf;
 		int ip_len = ip_hdr->ip_hl * 4;
 
+		/* Check if the bytes received does cover an IP and ICMP header */
+		if ((size_t)recv_bytes < (ip_len + sizeof(struct icmp)))
+		{
+			continue;
+		}
+
 		struct icmp *reply_hdr = (struct icmp *)(recvbuf + ip_len);
 		if (reply_hdr->icmp_type == ICMP_ECHOREPLY)
+		{
 			return reply_hdr;
+		}
 	}
 	return NULL;
 }
@@ -200,7 +217,7 @@ int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
 struct icmp6_hdr *get_icmp6_reply_hdr(int sfd)
 {
 	/* In case the captured packet is not a reply, try again */
-	for (int retry = 0; retry < 3; retry++)
+	for (int retry = 0; retry < REPLY_RETRIES; retry++)
 	{
 
 		char recvbuf[sizeof(struct icmp6_hdr)];
