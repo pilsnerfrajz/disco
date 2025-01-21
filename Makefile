@@ -28,9 +28,11 @@ $(TEST_OBJS):
 	@$(CC) $(CFLAGS) -o $(TESTS_DIR)/$(BUILD_DIR)/$@ -c $(TESTS_DIR)/$*.c
 
 dir:
-	@mkdir -p $(BIN_DIR) $(BUILD_DIR) $(TESTS_DIR)/{$(BIN_DIR),$(BUILD_DIR)}
+	@mkdir -p $(BIN_DIR) $(BUILD_DIR) $(TESTS_DIR)/$(BIN_DIR) \
+	$(TESTS_DIR)/$(BUILD_DIR)
 
 clean:
-	@rm -rf $(BUILD_DIR) $(BIN_DIR) $(TESTS_DIR)/{$(BIN_DIR),$(BUILD_DIR)}
+	@rm -rf $(BUILD_DIR) $(BIN_DIR) $(TESTS_DIR)/$(BIN_DIR) \
+	$(TESTS_DIR)/$(BUILD_DIR)
 
 .PHONY: dir test clean
