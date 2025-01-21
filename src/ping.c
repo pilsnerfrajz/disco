@@ -150,7 +150,11 @@ struct icmp *get_icmp4_reply_hdr(int sfd)
 		return NULL;
 	}
 
-	struct icmp *reply_hdr = (struct icmp *)(recvbuf + sizeof(struct ip));
+	/* Check the IP header length to skip it */
+	struct ip *ip_hdr = (struct ip *)recvbuf;
+	int ip_len = ip_hdr->ip_hl * 4;
+
+	struct icmp *reply_hdr = (struct icmp *)(recvbuf + ip_len);
 	return reply_hdr;
 }
 
@@ -281,6 +285,7 @@ int ping(char *address, int tries)
 				continue;
 			}
 
+			// when pinging loopback, the request is sometimes captured by recv
 			if (reply_hdr->icmp_type == ICMP_ECHO)
 			{
 				reply_hdr = get_icmp4_reply_hdr(sfd);
