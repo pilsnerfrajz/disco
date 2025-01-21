@@ -143,19 +143,26 @@ struct icmp create_icmp4_echo_req_hdr(int seq)
  */
 struct icmp *get_icmp4_reply_hdr(int sfd)
 {
-	char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
-	int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
-	if (recv_bytes <= 0)
+	/* In case the captured packet is not a reply, try again */
+	for (int retry = 0; retry < 3; retry++)
 	{
-		return NULL;
+
+		char recvbuf[sizeof(struct ip) + sizeof(struct icmp)];
+		int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
+		if (recv_bytes <= 0)
+		{
+			return NULL;
+		}
+
+		/* Check the IP header length to skip it */
+		struct ip *ip_hdr = (struct ip *)recvbuf;
+		int ip_len = ip_hdr->ip_hl * 4;
+
+		struct icmp *reply_hdr = (struct icmp *)(recvbuf + ip_len);
+		if (reply_hdr->icmp_type == ICMP_ECHOREPLY)
+			return reply_hdr;
 	}
-
-	/* Check the IP header length to skip it */
-	struct ip *ip_hdr = (struct ip *)recvbuf;
-	int ip_len = ip_hdr->ip_hl * 4;
-
-	struct icmp *reply_hdr = (struct icmp *)(recvbuf + ip_len);
-	return reply_hdr;
+	return NULL;
 }
 
 /**
@@ -167,13 +174,19 @@ struct icmp *get_icmp4_reply_hdr(int sfd)
  */
 int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
 {
-	if (reply_hdr->icmp_type == ICMP_ECHOREPLY &&
-		ntohs(reply_hdr->icmp_hun.ih_idseq.icd_seq) == seq &&
-		ntohs(reply_hdr->icmp_hun.ih_idseq.icd_id) == (getpid() & 0xffff))
+	if (reply_hdr->icmp_type != ICMP_ECHOREPLY)
 	{
-		return 0;
+		return -1;
 	}
-	return -1;
+	if (ntohs(reply_hdr->icmp_hun.ih_idseq.icd_seq) != seq)
+	{
+		return -1;
+	}
+	if (ntohs(reply_hdr->icmp_hun.ih_idseq.icd_id) != (getpid() & 0xffff))
+	{
+		return -1;
+	}
+	return 0;
 }
 
 /**
@@ -186,15 +199,24 @@ int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
  */
 struct icmp6_hdr *get_icmp6_reply_hdr(int sfd)
 {
-	char recvbuf[sizeof(struct icmp6_hdr)];
-	int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
-	if (recv_bytes <= 0)
+	/* In case the captured packet is not a reply, try again */
+	for (int retry = 0; retry < 3; retry++)
 	{
-		return NULL;
-	}
 
-	struct icmp6_hdr *reply_hdr = (struct icmp6_hdr *)(recvbuf);
-	return reply_hdr;
+		char recvbuf[sizeof(struct icmp6_hdr)];
+		int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
+		if (recv_bytes <= 0)
+		{
+			return NULL;
+		}
+
+		struct icmp6_hdr *reply_hdr = (struct icmp6_hdr *)(recvbuf);
+		if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY)
+		{
+			return reply_hdr;
+		}
+	}
+	return NULL;
 }
 
 /**
@@ -285,17 +307,6 @@ int ping(char *address, int tries)
 				continue;
 			}
 
-			// when pinging loopback, the request is sometimes captured by recv
-			if (reply_hdr->icmp_type == ICMP_ECHO)
-			{
-				reply_hdr = get_icmp4_reply_hdr(sfd);
-			}
-
-			if (reply_hdr == NULL)
-			{
-				continue;
-			}
-
 			rv = verify_icmp4_reply_hdr(reply_hdr, seq);
 			if (rv == 0)
 			{
@@ -344,12 +355,6 @@ int ping(char *address, int tries)
 			if (reply_hdr == NULL)
 			{
 				continue;
-			}
-
-			// when pinging loopback, the request is sometimes captured by recv
-			if (reply_hdr->icmp6_type == ICMP6_ECHO_REQUEST)
-			{
-				reply_hdr = get_icmp6_reply_hdr(sfd);
 			}
 
 			if (reply_hdr != NULL &&
