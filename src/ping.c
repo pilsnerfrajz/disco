@@ -48,7 +48,7 @@ struct protoent *get_proto(struct addrinfo *dst)
 	}
 	else
 	{
-		protocol = getprotobyname("icmp6");
+		protocol = getprotobyname("ipv6-icmp");
 	}
 
 	if (protocol == NULL)
