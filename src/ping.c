@@ -219,7 +219,6 @@ struct icmp6_hdr *get_icmp6_reply_hdr(int sfd)
 	/* In case the captured packet is not a reply, try again */
 	for (int retry = 0; retry < REPLY_RETRIES; retry++)
 	{
-
 		char recvbuf[sizeof(struct icmp6_hdr)];
 		int recv_bytes = recv(sfd, &recvbuf, sizeof(recvbuf), 0);
 		if (recv_bytes <= 0)
@@ -261,7 +260,7 @@ int ping(char *address, int tries)
 {
 	int rv;
 
-	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_DGRAM);
+	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
 	{
 		return UNKNOWN_HOST;
@@ -373,15 +372,21 @@ int ping(char *address, int tries)
 			{
 				continue;
 			}
-
-			if (reply_hdr != NULL &&
-				reply_hdr->icmp6_type == ICMP6_ECHO_REPLY &&
-				ntohs(reply_hdr->icmp6_seq) == seq &&
-				ntohs(reply_hdr->icmp6_id) == (getpid() & 0xffff))
+			if (reply_hdr->icmp6_type != ICMP6_ECHO_REPLY)
 			{
-				host_is_up = 1;
-				break;
+				continue;
 			}
+			if (ntohs(reply_hdr->icmp6_seq) != seq)
+			{
+				continue;
+			}
+			if (ntohs(reply_hdr->icmp6_id) != (getpid() & 0xffff))
+			{
+				continue;
+			}
+
+			host_is_up = 1;
+			break;
 		}
 
 		free_dst_addr_struct(dst);
