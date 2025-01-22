@@ -33,7 +33,7 @@ typedef struct icmp6_pseudo_hdr
 	u_int32_t length;
 	u_int32_t zero[3];
 	u_int8_t next;
-} icmp6_pseudo_hdr;
+} icmp6_pseudo_hdr_t;
 
 /**
  * @brief Gets a proto object for the ICMP or ICMP6 protocols.
@@ -351,7 +351,7 @@ int ping(char *address, int tries)
 			// parse the dst struct to get a suitable structure to use in pseudo.
 			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst->ai_addr;
 			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
-			icmp6_pseudo_hdr pseudo_hdr = {
+			struct icmp6_pseudo_hdr pseudo_hdr = {
 				.source = src.sin6_addr,
 				.dest = dest_addr,
 				.zero = {0, 0, 0},
