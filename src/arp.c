@@ -20,6 +20,7 @@
 #ifdef __linux__
 #include <net/if_arp.h>		 /* ARPHRD_ETHER */
 #include <linux/if_packet.h> /* AF_PACKET and sockaddr_ll */
+#include <net/if.h>			 /* IFF_LOOPBACK */
 #endif
 
 /* Send/read packets */
@@ -334,7 +335,7 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 			if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET)
 			{
 				struct sockaddr_in *check_ip = (struct sockaddr_in *)ifa->ifa_addr;
-				if ((ntohl(check_ip->sin_addr.s_addr) & 0xff000000) == 0x7f00000000)
+				if ((ntohl(check_ip->sin_addr.s_addr) & 0xFF000000) == 0x7F000000)
 				{
 					continue;
 				}
