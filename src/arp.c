@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 
 #include <signal.h> /* Alarm to break pcap_loop */
 #include <unistd.h> /* alarm() */
@@ -241,6 +242,33 @@ int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
 	return -1;
 }
 
+int get_mask_ioctl(const char *iface, struct sockaddr_in **mask)
+{
+	int fd;
+	struct ifreq ifr;
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0)
+	{
+		return 0;
+	}
+
+	strncpy(ifr.ifr_name, iface, IFNAMSIZ - 1);
+	ifr.ifr_name[IFNAMSIZ - 1] = '\0';
+
+	if (ioctl(fd, SIOCGIFNETMASK, &ifr) == 0)
+	{
+		*mask = (struct sockaddr_in *)&ifr.ifr_addr;
+		close(fd);
+		return 1;
+	}
+	else
+	{
+		close(fd);
+		return 0;
+	}
+}
+
 int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 					u_int8_t *src_mac, char *if_name, size_t if_size)
 {
@@ -249,7 +277,6 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 	int rv = getifaddrs(&ifap);
 	if (rv != 0)
 	{
-		perror("getifaddrs");
 		return IFACE_ERROR;
 	}
 
@@ -265,15 +292,6 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 
 	for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next)
 	{
-		/* Check if interface is loopback. Continue if it is */
-		if (ip_addr && (((ntohl(ip->sin_addr.s_addr) & 0xFF000000) == 0x7F000000)))
-		{
-			net_mask = 0;
-			ip_addr = 0;
-			mac_addr = 0;
-			continue;
-		}
-
 		if (ip_addr && mac_addr && net_mask)
 		{
 			/* If target and host are on the same subnet, ARP is possible */
@@ -306,6 +324,23 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 			return ARP_SUPP;
 		}
 
+		/* Check if interface is loopback. Continue if it is */
+		if (ifa->ifa_flags & IFF_LOOPBACK)
+		{
+			/*
+			 * double-check that the interface is actually loopback as the
+			 * Ubuntu flags were wrong for the wlp3s0 interface
+			 */
+			if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET)
+			{
+				struct sockaddr_in *check_ip = (struct sockaddr_in *)ifa->ifa_addr;
+				if ((ntohl(check_ip->sin_addr.s_addr) & 0xff000000) == 0x7f00000000)
+				{
+					continue;
+				}
+			}
+		}
+
 		if (ifa->ifa_name != NULL)
 		{
 			/* If a new interface is found, reset */
@@ -334,7 +369,7 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 		}
 #endif
 
-/* UNTESTED */
+/* AF_PACKET = linux */
 #ifdef __linux__
 		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_PACKET)
 		{
@@ -353,6 +388,17 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 		{
 			mask = (struct sockaddr_in *)(ifa->ifa_netmask);
 			net_mask = 1;
+		}
+		else
+		{
+			/* The netmask is sometimes incorrect, at least on my Ubuntu.
+			 * getifaddrs retreived 255.0.0.0 instead of 255.255.255.0.
+			 * Use ioctl to double-check.
+			 */
+			if (get_mask_ioctl(iface, &mask))
+			{
+				net_mask = 1;
+			}
 		}
 
 		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET)
