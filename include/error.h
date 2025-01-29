@@ -26,4 +26,21 @@ typedef enum err
 
 extern const char *const error_strings[];
 
+/**
+ * @brief Prints a descriptive error message to `stderr` based on an error code.
+ * Example usage:
+ *
+ * Example usage:
+ * @code
+ * int rv = ping("example.com");
+ * if (rv != SUCCESS) {
+ *     print_err("ping", rv);
+ * }
+ * @endcode
+ *
+ * @param function The function.
+ * @param err_val The returned value from the function.
+ */
+void print_err(char *function, int err_val);
+
 #endif

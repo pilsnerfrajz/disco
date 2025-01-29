@@ -1,6 +1,12 @@
+#include <stdio.h>
 #include "../include/error.h"
 
 #define ENUMS (sizeof(error_strings) / sizeof(error_strings[0]))
+
+void print_err(char *function, int err_val)
+{
+	fprintf(stderr, "%s: %s\n", function, error_strings[err_val]);
+}
 
 const char *const error_strings[] = {
 	"Success",
