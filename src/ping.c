@@ -16,6 +16,7 @@
 
 #include "../include/utils.h"
 #include "../include/error.h"
+#include "../include/ping.h"
 
 #define TIMEOUT_SECONDS 2
 #define ICMP_BUFSIZE 124
@@ -348,7 +349,7 @@ int ping(char *address, int tries)
 				return SOCKET_ERROR;
 			}
 
-			// parse the dst struct to get a suitable structure to use in pseudo.
+			/* parse the dst struct to get a suitable structure to use in pseudo */
 			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst->ai_addr;
 			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
 			struct icmp6_pseudo_hdr pseudo_hdr = {
