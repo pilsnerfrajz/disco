@@ -38,27 +38,24 @@ int arp_possible_test(char *address)
 void arp_test(void)
 {
 	int ret;
-	char *ip = "8.8.8.8";
 	printf("-- ARP TESTS --\n");
-	if ((ret = arp_possible_test(ip)) == ARP_NOT_SUPP)
-		printf("✅ Remote IP %s does not support ARP test: Passed\n", ip);
+	if ((ret = arp_possible_test("8.8.8.8")) == ARP_NOT_SUPP)
+		printf("✅ Remote IP 8.8.8.8 does not support ARP test: Passed\n");
 	else
-		printf("❌ Remote IP %s does not support ARP test: Failed. %s\n", ip, error_strings[ret]);
+		print_err("❌ Remote IP 8.8.8.8 does not support ARP test failed", ret);
 
-	ip = "192.168.1.1";
-	if ((ret = arp_possible_test(ip)) == ARP_SUPP)
-		printf("✅ Local live host %s supports ARP test: Passed\n", ip);
+	if ((ret = arp_possible_test("192.168.1.1")) == ARP_SUPP)
+		printf("✅ Local live host 192.168.1.1 supports ARP test: Passed\n");
 	else
-		printf("❌ Local live host %s supports ARP test: Failed. %s\n", ip, error_strings[ret]);
+		print_err("❌ Local live host 192.168.1.1 supports ARP test failed", ret);
 
-	if (arp(ip) == SUCCESS)
-		printf("✅ ARP request to live host %s received reply test: Passed\n", ip);
+	if (arp("192.168.1.1") == SUCCESS)
+		printf("✅ ARP request to live host 192.168.1.1 received reply test: Passed\n");
 	else
-		printf("❌ ARP request to live host %s received reply test: Failed. %s\n", ip, error_strings[ret]);
+		print_err("❌ ARP request to live host 192.168.1.1 received reply test failed", ret);
 
-	ip = "192.168.1.100";
-	if (arp(ip) == NO_RESPONSE)
-		printf("✅ ARP request to down host %s received no reply test: Passed\n", ip);
+	if (arp("192.168.1.100") == NO_RESPONSE)
+		printf("✅ ARP request to down host 192.168.1.100 received no reply test: Passed\n");
 	else
-		printf("❌ ARP request to down host %s received no reply test: Failed. %s\n", ip, error_strings[ret]);
+		print_err("❌ ARP request to down host 192.168.1.100 received no reply test failed", ret);
 }
