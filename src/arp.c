@@ -173,6 +173,11 @@ int arp(char *address)
 	if (handle == NULL)
 	{
 		free(if_name);
+		/* Check if the error occured because of insufficient privileges */
+		if (strstr(errbuf, "Operation not permitted"))
+		{
+			return PERMISSION_ERROR;
+		}
 		return PCAP_OPEN;
 	}
 
