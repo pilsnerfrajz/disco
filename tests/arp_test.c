@@ -26,7 +26,7 @@ int arp_possible_test(char *address)
 
 	int ret = get_arp_details((struct sockaddr_in *)dst_info->ai_addr,
 							  sender_ip, sender_mac, if_name, IF_NAME_SIZE);
-	if (ret != SUCCESS)
+	if (ret != ARP_SUPP)
 	{
 		free_dst_addr_struct(dst_info);
 		free(if_name);
@@ -49,12 +49,12 @@ void arp_test(void)
 	else
 		print_err("❌ Local live host 192.168.1.1 supports ARP test failed", ret);
 
-	if (arp("192.168.1.1") == SUCCESS)
+	if ((ret = arp("192.168.1.1")) == SUCCESS)
 		printf("✅ ARP request to live host 192.168.1.1 received reply test: Passed\n");
 	else
 		print_err("❌ ARP request to live host 192.168.1.1 received reply test failed", ret);
 
-	if (arp("192.168.1.100") == NO_RESPONSE)
+	if ((ret = arp("192.168.1.100")) == NO_RESPONSE)
 		printf("✅ ARP request to down host 192.168.1.100 received no reply test: Passed\n");
 	else
 		print_err("❌ ARP request to down host 192.168.1.100 received no reply test failed", ret);
