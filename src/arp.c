@@ -23,8 +23,7 @@
 #include <net/if.h>			 /* IFF_LOOPBACK */
 #endif
 
-/* Send/read packets */
-#include <pcap/pcap.h>
+#include <pcap/pcap.h> /* Send/read packets */
 
 #include "../include/arp.h"
 #include "../include/utils.h"
@@ -37,7 +36,9 @@
 #define CAP_TIMEOUT 1000	/* Milliseconds */
 #define ALARM_SEC 2
 
-static pcap_t *handle;
+static pcap_t *handle; /* Global handle for PCAP */
+
+/* Data that is used when processing the ARP response */
 struct callback_data
 {
 	struct arp_frame arp_frame;
@@ -231,6 +232,15 @@ int arp(char *address)
 	return NO_RESPONSE;
 }
 
+/**
+ * @brief Checks if two hosts are on the same subnet given one of their netmasks.
+ *
+ * @param src The source address.
+ * @param dst The destination address.
+ * @param mask The netmask of on of the addresses.
+ * @return int Returns 0 if the the hosts are on the same subnet. Otherwise,
+ * returns -1.
+ */
 int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
 {
 	int src_net = ntohl(src) & ntohl(mask);
@@ -243,6 +253,14 @@ int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
 	return -1;
 }
 
+/**
+ * @brief Backup function when `getifaddrs` fails to fetch the netmask.
+ *
+ * @param iface The name of the interface to target.
+ * @param mask Pointer to a `sockaddr_in *` to store the netmask in.
+ * @return int Returns 1 if the netmask is retrieved successfully. Returns
+ * 0 if an error occurs.
+ */
 int get_mask_ioctl(const char *iface, struct sockaddr_in **mask)
 {
 	int fd;
@@ -270,8 +288,8 @@ int get_mask_ioctl(const char *iface, struct sockaddr_in **mask)
 	}
 }
 
-int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
-					u_int8_t *src_mac, char *if_name, size_t if_size)
+int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip_buf,
+					u_int8_t *src_mac_buf, char *if_name, size_t if_size)
 {
 	struct ifaddrs *ifap;
 	struct ifaddrs *ifa;
@@ -307,12 +325,12 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 			}
 
 			/* Buffers must be 4 and 6 bytes */
-			if (sizeof(src_ip) < 4 && sizeof(src_mac) < 6)
+			if (sizeof(src_ip_buf) < 4 && sizeof(src_mac_buf) < 6)
 			{
 				return BAD_BUF_SIZE;
 			}
-			memcpy(src_ip, &ip->sin_addr.s_addr, 4);
-			memcpy(src_mac, mac, 6);
+			memcpy(src_ip_buf, &ip->sin_addr.s_addr, 4);
+			memcpy(src_mac_buf, mac, 6);
 
 			/* Copy interface name to if_name */
 			if (snprintf(if_name, if_size, "%s", iface) >= (int)if_size)
@@ -329,7 +347,7 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 		if (ifa->ifa_flags & IFF_LOOPBACK)
 		{
 			/*
-			 * double-check that the interface is actually loopback as the
+			 * Double-check that the interface is actually loopback as the
 			 * Ubuntu flags were wrong for the wlp3s0 interface
 			 */
 			if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET)
@@ -392,7 +410,8 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip,
 		}
 		else
 		{
-			/* The netmask is sometimes incorrect, at least on my Ubuntu.
+			/*
+			 * The netmask is sometimes incorrect, at least on my Ubuntu.
 			 * getifaddrs retreived 255.0.0.0 instead of 255.255.255.0.
 			 * Use ioctl to double-check.
 			 */
