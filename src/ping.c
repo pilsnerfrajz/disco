@@ -63,29 +63,6 @@ struct protoent *get_proto(struct addrinfo *dst)
 }
 
 /**
- * @brief Sets a timeout on the socket. The socket blocks for `TIMEOUT_SECONDS`
- * if no data is received, before proceeding.
- *
- * @param sfd The socket file descriptor.
- * @return `int` 0 if options are set correctly. Otherwise -1.
- */
-int set_socket_options(int sfd)
-{
-	struct timeval timeout = {
-		.tv_sec = TIMEOUT_SECONDS,
-		.tv_usec = 0,
-	};
-
-	int rv = setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-	if (rv == -1)
-	{
-		return -1;
-	}
-
-	return 0;
-}
-
-/**
  * @brief Calculates the internet checksum of an ICMP header or ICMP6 pseudo header.
  *
  * @param hdr The address of the header struct.
@@ -285,7 +262,7 @@ int ping(char *address, int tries)
 		return SOCKET_ERROR;
 	}
 
-	rv = set_socket_options(sfd);
+	rv = set_socket_options(sfd, TIMEOUT_SECONDS);
 	if (rv == -1)
 	{
 		free_dst_addr_struct(dst);

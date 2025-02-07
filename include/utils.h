@@ -36,4 +36,13 @@ void print_ip(struct sockaddr_in *);
  */
 int validate_ip(char *);
 
+/**
+ * @brief Sets a timeout on the socket. The socket blocks for `s_timeout`
+ * seconds if no data is received, before proceeding.
+ *
+ * @param sfd The socket file descriptor.
+ * @return `int` 0 if options are set correctly. Otherwise -1.
+ */
+int set_socket_options(int sfd, int s_timeout);
+
 #endif

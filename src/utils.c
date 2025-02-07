@@ -93,3 +93,19 @@ int validate_ip(char *ip)
 	}
 	return -1;
 }
+
+int set_socket_options(int sfd, int s_timeout)
+{
+	struct timeval timeout = {
+		.tv_sec = s_timeout,
+		.tv_usec = 0,
+	};
+
+	int rv = setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+	if (rv == -1)
+	{
+		return -1;
+	}
+
+	return 0;
+}
