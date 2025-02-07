@@ -109,3 +109,27 @@ int set_socket_options(int sfd, int s_timeout)
 
 	return 0;
 }
+
+uint16_t calc_checksum(void *hdr, int len)
+{
+	uint16_t *temp = hdr;
+	uint32_t sum = 0;
+
+	/* count 16 bits each iteration */
+	for (sum = 0; len > 1; len -= 2)
+	{
+		sum += *temp++;
+	}
+
+	if (len == 1)
+	{
+		sum += *(uint8_t *)temp;
+	}
+
+	while (sum >> 16)
+	{
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
+
+	return ~sum;
+}

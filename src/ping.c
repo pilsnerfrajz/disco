@@ -63,37 +63,6 @@ struct protoent *get_proto(struct addrinfo *dst)
 }
 
 /**
- * @brief Calculates the internet checksum of an ICMP header or ICMP6 pseudo header.
- *
- * @param hdr The address of the header struct.
- * @param len The size of the header struct.
- * @return `uint16_t` Internet checksum of header struct.
- */
-uint16_t calc_checksum(void *hdr, int len)
-{
-	uint16_t *temp = hdr;
-	uint32_t sum = 0;
-
-	/* count 16 bits each iteration */
-	for (sum = 0; len > 1; len -= 2)
-	{
-		sum += *temp++;
-	}
-
-	if (len == 1)
-	{
-		sum += *(uint8_t *)temp;
-	}
-
-	while (sum >> 16)
-	{
-		sum = (sum >> 16) + (sum & 0xffff);
-	}
-
-	return ~sum;
-}
-
-/**
  * @brief Creates an ICMP echo request header.
  *
  * @param seq The sequence number of the packet.

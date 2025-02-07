@@ -45,4 +45,13 @@ int validate_ip(char *);
  */
 int set_socket_options(int sfd, int s_timeout);
 
+/**
+ * @brief Calculates the internet checksum of `hdr`.
+ *
+ * @param hdr The address of the header struct.
+ * @param len The size of the header struct.
+ * @return `uint16_t` Internet checksum of header struct.
+ */
+uint16_t calc_checksum(void *hdr, int len);
+
 #endif
