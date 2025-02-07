@@ -90,13 +90,30 @@ int port_scan(char *address)
 	memset(&tcp_hdr, 0, sizeof(tcp_header_t));
 
 	tcp_hdr.sport = src_port;
-	// tcp_hdr.dport
 	tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
 	tcp_hdr.ack = htonl(0);
 	tcp_hdr.offset_rsrvd.offset = 5;
 	tcp_hdr.flags = SYN;
 	tcp_hdr.window = htons(1024); /* Change to random later? */
-	// tcp_hdr.checksum
+
+	/* Fill in pseudo header depending on the address family of the target */
+	tcp_pseudo_hdr_t tcp_pseudo;
+	if (dst->ai_family == AF_INET)
+	{
+		memset(&tcp_pseudo, 0, sizeof(tcp_pseudo_hdr_t));
+		tcp_pseudo.src_ip = s_addr_in->sin_addr.s_addr;
+		tcp_pseudo.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
+		tcp_pseudo.ptcl = protocol->p_proto;
+	}
+
+	/* Scan well-known ports to start with */
+	for (int port = 1; port <= 1024; port++)
+	{
+		tcp_hdr.dport = htons(port);
+
+		/* Reset checksum */
+		tcp_hdr.checksum = htons(0);
+	}
 
 	// send to first port
 
