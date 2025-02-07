@@ -104,6 +104,10 @@ int port_scan(char *address)
 		tcp_pseudo.src_ip = s_addr_in->sin_addr.s_addr;
 		tcp_pseudo.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
 		tcp_pseudo.ptcl = protocol->p_proto;
+		tcp_pseudo.tcp_len = htons(sizeof(tcp_header_t));
+	}
+	else if (dst->ai_family == AF_INET6)
+	{
 	}
 
 	/* Scan well-known ports to start with */
