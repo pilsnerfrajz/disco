@@ -7,7 +7,7 @@
  * @brief Struct to set the TCP flags. Needs to be converted to a `u_int8_t`
  * when used in the TCP header.
  */
-typedef struct tcp_flags
+/*typedef struct tcp_flags
 {
 	u_int8_t cwr : 1;
 	u_int8_t ece : 1;
@@ -17,7 +17,7 @@ typedef struct tcp_flags
 	u_int8_t rst : 1;
 	u_int8_t syn : 1;
 	u_int8_t fin : 1;
-} tcp_flags_t;
+} tcp_flags_t;*/
 
 /**
  * @brief Struct for easier setting of bits in the Data Offset and Reserved
