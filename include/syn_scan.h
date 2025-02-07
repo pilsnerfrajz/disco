@@ -45,4 +45,23 @@ typedef struct tcp_header
 	u_int16_t checksum;
 } tcp_header_t;
 
+/**
+ * @brief TCP pseudo header according to RFC 9293.
+ * https://www.ietf.org/rfc/rfc9293.html#v4pseudo
+ *
+ */
+typedef struct tcp_pseudo_ipv4
+{
+	/* the IPv4 source address in network byte order */
+	u_int32_t src_ip;
+	/* the IPv4 destination address in network byte order */
+	u_int32_t dst_ip;
+	/* bits set to zero */
+	u_int8_t zero;
+	/* the protocol number from the IP header */
+	u_int8_t ptcl;
+	/* length of header + payload. Does not include the pseudo header */
+	uint16_t tcp_len;
+} tcp_pseudo_hdr_t;
+
 #endif
