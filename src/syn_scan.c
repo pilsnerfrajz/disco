@@ -11,7 +11,7 @@
 
 #include "../include/utils.h"
 #include "../include/error.h"
-#include "../include/syn_scan.h"
+#include "../include/headers.h"
 
 #define SYN 0x02	 /* Sets the SYN flag in the TCP flag field */
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
@@ -51,7 +51,7 @@ int port_scan(char *address)
 		return SOCKET_ERROR;
 	}
 
-	/* Use connect to make the OS set source IP and source port */
+	/* Use `connect` to make the OS set source IP and source port */
 	rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
 	if (rv != 0)
 	{
@@ -71,7 +71,7 @@ int port_scan(char *address)
 
 	struct sockaddr_in *s_addr_in = NULL;
 	struct sockaddr_in6 *s_addr_in6 = NULL;
-	u_int16_t src_port;
+	u_int16_t src_port = 0;
 	if (dst->ai_family == AF_INET)
 	{
 		s_addr_in = (struct sockaddr_in *)&storage;
@@ -81,6 +81,10 @@ int port_scan(char *address)
 	{
 		s_addr_in6 = (struct sockaddr_in6 *)&storage;
 		src_port = s_addr_in6->sin6_port;
+	}
+	else
+	{
+		// error
 	}
 
 	// TODO Fix IP header as well for Linux support
@@ -97,10 +101,10 @@ int port_scan(char *address)
 	tcp_hdr.window = htons(1024); /* Change to random later? */
 
 	/* Fill in pseudo header depending on the address family of the target */
-	tcp_pseudo_hdr_t tcp_pseudo;
+	tcp_pseudo_ipv4_t tcp_pseudo;
 	if (dst->ai_family == AF_INET)
 	{
-		memset(&tcp_pseudo, 0, sizeof(tcp_pseudo_hdr_t));
+		memset(&tcp_pseudo, 0, sizeof(tcp_pseudo_ipv4_t));
 		tcp_pseudo.src_ip = s_addr_in->sin_addr.s_addr;
 		tcp_pseudo.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
 		tcp_pseudo.ptcl = protocol->p_proto;
@@ -109,15 +113,21 @@ int port_scan(char *address)
 	else if (dst->ai_family == AF_INET6)
 	{
 	}
+	else
+	{
+		// error
+	}
+
+	tcp_hdr.dport = htons(80);
 
 	/* Scan well-known ports to start with */
-	for (int port = 1; port <= 1024; port++)
-	{
-		tcp_hdr.dport = htons(port);
+	// for (int port = 1; port <= 1024; port++)
+	//{
+	//	tcp_hdr.dport = htons(port);
 
-		/* Reset checksum */
-		tcp_hdr.checksum = htons(0);
-	}
+	/* Reset checksum */
+	// tcp_hdr.checksum = htons(0);
+	//}
 
 	// send to first port
 
