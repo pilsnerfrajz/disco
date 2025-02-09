@@ -17,24 +17,11 @@
 #include "../include/utils.h"
 #include "../include/error.h"
 #include "../include/ping.h"
+#include "../include/headers.h"
 
 #define TIMEOUT_SECONDS 2
 #define ICMP_BUFSIZE 124
 #define REPLY_RETRIES 3
-
-/**
- * @brief ICMP6 pseudo header used when calculating the checksum
- * for an ICMP6 packet.
- *
- */
-typedef struct icmp6_pseudo_hdr
-{
-	struct in6_addr source;
-	struct in6_addr dest;
-	u_int32_t length;
-	u_int32_t zero[3];
-	u_int8_t next;
-} icmp6_pseudo_hdr_t;
 
 /**
  * @brief Gets a proto object for the ICMP or ICMP6 protocols.
@@ -298,9 +285,9 @@ int ping(char *address, int tries)
 			/* parse the dst struct to get a suitable structure to use in pseudo */
 			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst->ai_addr;
 			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
-			struct icmp6_pseudo_hdr pseudo_hdr = {
-				.source = src.sin6_addr,
-				.dest = dest_addr,
+			tcp_pseudo_ipv6_t pseudo_hdr = {
+				.src_ip = src.sin6_addr,
+				.dst_ip = dest_addr,
 				.zero = {0, 0, 0},
 				.length = htonl(sizeof(icmp6_req_hdr)),
 				.next = IPPROTO_ICMPV6,
