@@ -92,7 +92,6 @@ int port_scan(char *address)
 	/* Declare header and init all fields to 0 */
 	tcp_header_t tcp_hdr;
 	memset(&tcp_hdr, 0, sizeof(tcp_header_t));
-
 	tcp_hdr.sport = src_port;
 	tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
 	tcp_hdr.ack = htonl(0);
@@ -101,17 +100,23 @@ int port_scan(char *address)
 	tcp_hdr.window = htons(1024); /* Change to random later? */
 
 	/* Fill in pseudo header depending on the address family of the target */
-	tcp_pseudo_ipv4_t tcp_pseudo;
+	tcp_pseudo_ipv4_t tcp_pseudo_ipv4;
+	tcp_pseudo_ipv6_t tcp_pseudo_ipv6;
 	if (dst->ai_family == AF_INET)
 	{
-		memset(&tcp_pseudo, 0, sizeof(tcp_pseudo_ipv4_t));
-		tcp_pseudo.src_ip = s_addr_in->sin_addr.s_addr;
-		tcp_pseudo.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
-		tcp_pseudo.ptcl = protocol->p_proto;
-		tcp_pseudo.tcp_len = htons(sizeof(tcp_header_t));
+		memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
+		tcp_pseudo_ipv4.src_ip = s_addr_in->sin_addr.s_addr;
+		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
+		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
+		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
+		memset(&tcp_pseudo_ipv6, 0, sizeof(tcp_pseudo_ipv6_t));
+		tcp_pseudo_ipv6.src_ip = s_addr_in6->sin6_addr;
+		tcp_pseudo_ipv6.dst_ip = ((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr;
+		tcp_pseudo_ipv6.next = protocol->p_proto;
+		tcp_pseudo_ipv6.length = htonl(sizeof(tcp_header_t));
 	}
 	else
 	{
