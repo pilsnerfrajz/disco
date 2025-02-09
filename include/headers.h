@@ -63,6 +63,9 @@ typedef struct tcp_pseudo_ipv6
 	u_int8_t next;
 } tcp_pseudo_ipv6_t;
 
+/**
+ * @brief Ethernet header according to RFC 826.
+ */
 typedef struct ethernet_header
 {
 	/* Ethernet address of destination */
