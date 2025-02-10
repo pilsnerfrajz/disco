@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <netinet/ip.h>
 
 #include "../include/utils.h"
 #include "../include/error.h"
@@ -17,6 +18,18 @@
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
 #define RST 0x04	 /* Sets the RST flag in the TCP flag field */
 #define TIMEOUT_SECONDS 2
+#define RETRIES 3
+
+/*
+ * Max IPv4 header size = 60 bytes
+ * Max TCP header size = 60 bytes
+ */
+#define TCP_IPv4_BUF 120
+/*
+ * Max IPv6 header size = 40 bytes
+ * Max TCP header size = 60 bytes
+ */
+#define TCP_IPv6_BUF 100
 
 int port_scan(char *address)
 {
@@ -41,6 +54,7 @@ int port_scan(char *address)
 		{
 			return PERMISSION_ERROR;
 		}
+		printf("Socket\n");
 		return SOCKET_ERROR;
 	}
 
@@ -48,6 +62,7 @@ int port_scan(char *address)
 	if (rv != 0)
 	{
 		free_dst_addr_struct(dst);
+		printf("Socket op\n");
 		return SOCKET_ERROR;
 	}
 
@@ -56,6 +71,7 @@ int port_scan(char *address)
 	if (rv != 0)
 	{
 		free_dst_addr_struct(dst);
+		printf("Connect\n");
 		return SOCKET_ERROR;
 	}
 
@@ -66,6 +82,7 @@ int port_scan(char *address)
 	if (rv != 0)
 	{
 		free_dst_addr_struct(dst);
+		printf("Getsock\n");
 		return SOCKET_ERROR;
 	}
 
@@ -124,7 +141,11 @@ int port_scan(char *address)
 		/* Copy pseudo header and TCP header into a buffer */
 		memcpy(checksum_buf, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
 		memcpy(checksum_buf + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
+		tcp_hdr.checksum = 0;
 		tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
+
+		struct ip ip_header;
+		memset(&ip_header, 0, sizeof(struct ip));
 
 		// send to first port
 		u_int8_t *send_buf = (u_int8_t *)&tcp_hdr;
@@ -138,12 +159,51 @@ int port_scan(char *address)
 			{
 				free_dst_addr_struct(dst);
 				free(checksum_buf);
+				printf("Send\n");
 				return SOCKET_ERROR;
 			}
 			total_sent += sent;
 		}
+		sent = send(sfd, &tcp_hdr, sizeof(tcp_header_t), 0);
 
 		// wait for answer and check RST or SYN-ACK
+		for (int retry = 0; retry < RETRIES; retry++)
+		{
+			char recvbuf[TCP_IPv4_BUF];
+			rv = recv(sfd, recvbuf, TCP_IPv4_BUF, 0);
+			printf("Recv bytes: %d\n", rv);
+			if (rv < 0)
+			{
+				free_dst_addr_struct(dst);
+				free(checksum_buf);
+				perror("recv");
+				return SOCKET_ERROR;
+			}
+
+			struct ip *ip_len = (struct ip *)recvbuf;
+			/* Jump past IP header and get the TCP header */
+			tcp_header_t *recv_tcp_hdr = (tcp_header_t *)(recvbuf + ip_len->ip_hl * 4);
+			if (recv_tcp_hdr->dport != tcp_hdr.sport)
+			{
+				continue;
+			}
+			if (recv_tcp_hdr->sport != tcp_hdr.dport)
+			{
+				continue;
+			}
+			if (tcp_hdr.seq + htonl(1) != recv_tcp_hdr->ack)
+			{
+				continue;
+			}
+			if (recv_tcp_hdr->flags == SYN_ACK)
+			{
+				printf("PORT IS OPEN\n");
+			}
+			if (recv_tcp_hdr->flags == RST)
+			{
+				printf("PORT IS CLOSED\n");
+			}
+		}
 
 		// print or save results
 
