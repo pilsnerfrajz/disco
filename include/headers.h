@@ -38,9 +38,9 @@ typedef struct tcp_header
 typedef struct tcp_pseudo_ipv4
 {
 	/* the IPv4 source address in network byte order */
-	u_int32_t src_ip;
+	in_addr_t src_ip;
 	/* the IPv4 destination address in network byte order */
-	u_int32_t dst_ip;
+	in_addr_t dst_ip;
 	/* bits set to zero */
 	u_int8_t zero;
 	/* the protocol number from the IP header */
