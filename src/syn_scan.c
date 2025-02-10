@@ -109,6 +109,52 @@ int port_scan(char *address)
 		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
 		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
 		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
+
+		// TODO Change this
+		tcp_hdr.dport = htons(80);
+
+		/* Calculate checksum */
+		size_t checksum_len = sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t);
+		u_int8_t *checksum_buf = malloc(checksum_len);
+		if (checksum_buf == NULL)
+		{
+			free_dst_addr_struct(dst);
+			return MEM_ALLOC_ERROR;
+		}
+		/* Copy pseudo header and TCP header into a buffer */
+		memcpy(checksum_buf, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
+		memcpy(checksum_buf + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
+		tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
+
+		// send to first port
+		u_int8_t *send_buf = (u_int8_t *)&tcp_hdr;
+		ssize_t bytes_left = sizeof(tcp_header_t);
+		ssize_t total_sent = 0;
+		ssize_t sent;
+		while (total_sent < bytes_left)
+		{
+			sent = send(sfd, send_buf + total_sent, bytes_left - total_sent, 0);
+			if (sent == -1)
+			{
+				free_dst_addr_struct(dst);
+				free(checksum_buf);
+				return SOCKET_ERROR;
+			}
+			total_sent += sent;
+		}
+
+		// wait for answer and check RST or SYN-ACK
+
+		// print or save results
+
+		// change port number and maybe src port
+
+		// recalculate checksum
+
+		// send and repeat
+
+		// free
+		free(checksum_buf);
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
@@ -123,8 +169,6 @@ int port_scan(char *address)
 		// error
 	}
 
-	tcp_hdr.dport = htons(80);
-
 	/* Scan well-known ports to start with */
 	// for (int port = 1; port <= 1024; port++)
 	//{
@@ -133,16 +177,6 @@ int port_scan(char *address)
 	/* Reset checksum */
 	// tcp_hdr.checksum = htons(0);
 	//}
-
-	// send to first port
-
-	// wait for answer and check RST or SYN-ACK
-
-	// print or save results
-
-	// change port number and maybe src port
-
-	// send and repeat
 
 	free_dst_addr_struct(dst);
 
