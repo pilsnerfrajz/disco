@@ -9,6 +9,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
+#include <unistd.h>
 
 #include "../include/utils.h"
 #include "../include/error.h"
@@ -33,6 +34,52 @@
 
 int port_scan(char *address)
 {
+
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock < 0)
+	{
+		perror("Socket creation failed");
+		return SOCKET_ERROR;
+	}
+
+	struct sockaddr_in remote_addr;
+	memset(&remote_addr, 0, sizeof(remote_addr));
+	remote_addr.sin_family = AF_INET;
+	remote_addr.sin_port = htons(53); // DNS port (arbitrary)
+	inet_pton(AF_INET, address, &remote_addr.sin_addr);
+
+	if (connect(sock, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0)
+	{
+		perror("Connect failed");
+		close(sock);
+		return SOCKET_ERROR;
+	}
+
+	// Get local IP assigned to this connection
+	struct sockaddr_in local_addr;
+	socklen_t addr_len = sizeof(local_addr);
+	if (getsockname(sock, (struct sockaddr *)&local_addr, &addr_len) < 0)
+	{
+		perror("getsockname failed");
+		close(sock);
+		return SOCKET_ERROR;
+	}
+
+	close(sock);
+
+	// Convert IP to string
+	char *ip_str = malloc(INET_ADDRSTRLEN);
+	if (ip_str)
+	{
+		inet_ntop(AF_INET, &local_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
+	}
+	printf("IP: %s\n", ip_str);
+	free(ip_str);
+	int port = 0;
+	port = ntohs(local_addr.sin_port);
+	printf("PORT: %d\n", port);
+
+	/****************************************************************************************/
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
 	{
@@ -63,6 +110,16 @@ int port_scan(char *address)
 	{
 		free_dst_addr_struct(dst);
 		printf("Socket op\n");
+		close(sfd);
+		return SOCKET_ERROR;
+	}
+
+	int one = 1;
+	rv = setsockopt(sfd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
+	if (rv < 0)
+	{
+		perror("setsockopt IP_HDRINCL failed");
+		close(sfd);
 		return SOCKET_ERROR;
 	}
 
@@ -71,7 +128,8 @@ int port_scan(char *address)
 	if (rv != 0)
 	{
 		free_dst_addr_struct(dst);
-		printf("Connect\n");
+		perror("connect");
+		close(sfd);
 		return SOCKET_ERROR;
 	}
 
@@ -79,12 +137,15 @@ int port_scan(char *address)
 	struct sockaddr_storage storage;
 	socklen_t saddr_len = sizeof(storage);
 	rv = getsockname(sfd, (struct sockaddr *)&storage, &saddr_len);
-	if (rv != 0)
+	if (rv == -1)
 	{
 		free_dst_addr_struct(dst);
 		printf("Getsock\n");
+		close(sfd);
 		return SOCKET_ERROR;
 	}
+
+	printf("saddr_len: %d\n", saddr_len);
 
 	struct sockaddr_in *s_addr_in = NULL;
 	struct sockaddr_in6 *s_addr_in6 = NULL;
@@ -93,11 +154,32 @@ int port_scan(char *address)
 	{
 		s_addr_in = (struct sockaddr_in *)&storage;
 		src_port = s_addr_in->sin_port;
+		char ip_str[INET_ADDRSTRLEN];
+		if (inet_ntop(AF_INET, &s_addr_in->sin_addr, ip_str, INET_ADDRSTRLEN) != NULL)
+		{
+			printf("Source IP: %s\n", ip_str);
+		}
+		else
+		{
+			perror("inet_ntop");
+			close(sfd);
+			return SOCKET_ERROR;
+		}
+
+		printf("Source PORT: %d\n", ntohs(src_port));
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
 		s_addr_in6 = (struct sockaddr_in6 *)&storage;
-		src_port = s_addr_in6->sin6_port;
+		char ip_str[INET6_ADDRSTRLEN];
+		if (inet_ntop(AF_INET6, &s_addr_in6->sin6_addr, ip_str, INET6_ADDRSTRLEN) != NULL)
+		{
+			printf("IP: %s\n", ip_str);
+		}
+		printf("%d\n", ntohs(s_addr_in6->sin6_port));
+		return 0;
+		// src_port = storage.sin6_port;
+		// printf("PORT: %d\n", ntohs(src_port));
 	}
 	else
 	{
@@ -136,20 +218,66 @@ int port_scan(char *address)
 		if (checksum_buf == NULL)
 		{
 			free_dst_addr_struct(dst);
+			close(sfd);
 			return MEM_ALLOC_ERROR;
 		}
+
+		tcp_hdr.checksum = 0;
+		tcp_hdr.checksum = htons(calc_checksum(checksum_buf, checksum_len));
+		printf("Checksum: %d\n", ntohs(tcp_hdr.checksum));
+		char nprint[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &(s_addr_in->sin_addr), nprint, INET_ADDRSTRLEN);
+		printf("SRC: %s\n", nprint);
+
 		/* Copy pseudo header and TCP header into a buffer */
 		memcpy(checksum_buf, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
 		memcpy(checksum_buf + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
-		tcp_hdr.checksum = 0;
-		tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
 
+		// TODO ADD IP HEADER
 		struct ip ip_header;
 		memset(&ip_header, 0, sizeof(struct ip));
+		ip_header.ip_dst = ((struct sockaddr_in *)dst)->sin_addr;
+		ip_header.ip_src = s_addr_in->sin_addr;
+		ip_header.ip_v = 4;	 /* Version 4 */
+		ip_header.ip_hl = 5; /* Header length, no options */
+		ip_header.ip_len = htons(sizeof(struct ip) + sizeof(tcp_header_t));
+		ip_header.ip_id = htons(arc4random() & 0xffff); /* 16 bits */
+		ip_header.ip_ttl = 64;							/* Mac and Linux default */
+		ip_header.ip_p = (u_char)protocol->p_proto;		/* TCP */
+		ip_header.ip_sum = htons(calc_checksum(&ip_header, sizeof(struct ip)));
+
+		struct ip_packet
+		{
+			struct ip ip_hdr;
+			tcp_header_t tcp_hdr;
+		};
+
+		struct ip_packet ip_pkt = {
+			.ip_hdr = ip_header,
+			.tcp_hdr = tcp_hdr,
+		};
+
+		/*int optval = 1;
+		if (setsockopt(sfd, IPPROTO_IP, IP_HDRINCL, &optval, sizeof(optval)) < 0)
+		{
+			perror("setsockopt");
+			return SOCKET_ERROR;
+		}*/
+
+		printf("Raw Packet (IP Header + TCP Header):\n");
+		for (size_t i = 0; i < sizeof(struct ip_packet); i++)
+		{
+			printf("%02x ", ((unsigned char *)&ip_pkt)[i]);
+			if ((i + 1) % 16 == 0)
+			{
+				printf("\n");
+			}
+		}
+		printf("\n");
 
 		// send to first port
-		u_int8_t *send_buf = (u_int8_t *)&tcp_hdr;
-		ssize_t bytes_left = sizeof(tcp_header_t);
+		u_int8_t *send_buf = (u_int8_t *)&ip_pkt;
+		ssize_t bytes_left = sizeof(struct ip_packet);
 		ssize_t total_sent = 0;
 		ssize_t sent;
 		while (total_sent < bytes_left)
@@ -159,12 +287,12 @@ int port_scan(char *address)
 			{
 				free_dst_addr_struct(dst);
 				free(checksum_buf);
-				printf("Send\n");
+				perror("send");
+				close(sfd);
 				return SOCKET_ERROR;
 			}
 			total_sent += sent;
 		}
-		sent = send(sfd, &tcp_hdr, sizeof(tcp_header_t), 0);
 
 		// wait for answer and check RST or SYN-ACK
 		for (int retry = 0; retry < RETRIES; retry++)
@@ -177,6 +305,7 @@ int port_scan(char *address)
 				free_dst_addr_struct(dst);
 				free(checksum_buf);
 				perror("recv");
+				close(sfd);
 				return SOCKET_ERROR;
 			}
 
@@ -239,6 +368,7 @@ int port_scan(char *address)
 	//}
 
 	free_dst_addr_struct(dst);
+	close(sfd);
 
 	return SUCCESS;
 }
