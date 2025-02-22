@@ -32,10 +32,26 @@
  */
 #define TCP_IPv6_BUF 100
 
-int port_scan(char *address)
+struct src_info
 {
+	char *ip;
+	int port;
+};
 
-	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+/**
+ * @brief Gets the source IP and possible port used to connect to the target in
+ * `dst`. This function is a workaround as the `connect` call combined with
+ * `getsockname` does not seem to work with the `addrinfo struct`. At least
+ * on macOS.
+ *
+ * @param dst target info.
+ * @param src_info struct to store source information in.
+ * @return int returns 0 on success. SOCKET_ERROR or -1 is returned if an error
+ * occurs.
+ */
+int get_src_info(struct addrinfo *dst, struct src_info *src_info)
+{
+	int sock = socket(dst->ai_family, SOCK_DGRAM, 0);
 	if (sock < 0)
 	{
 		perror("Socket creation failed");
@@ -43,48 +59,102 @@ int port_scan(char *address)
 	}
 
 	struct sockaddr_in remote_addr;
-	memset(&remote_addr, 0, sizeof(remote_addr));
-	remote_addr.sin_family = AF_INET;
-	remote_addr.sin_port = htons(53); // DNS port (arbitrary)
-	inet_pton(AF_INET, address, &remote_addr.sin_addr);
-
-	if (connect(sock, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0)
-	{
-		perror("Connect failed");
-		close(sock);
-		return SOCKET_ERROR;
-	}
-
-	// Get local IP assigned to this connection
+	struct sockaddr_in6 remote_addr6;
 	struct sockaddr_in local_addr;
-	socklen_t addr_len = sizeof(local_addr);
-	if (getsockname(sock, (struct sockaddr *)&local_addr, &addr_len) < 0)
+	struct sockaddr_in6 local_addr6;
+
+	if (dst->ai_family == AF_INET)
 	{
-		perror("getsockname failed");
-		close(sock);
-		return SOCKET_ERROR;
+		memset(&remote_addr, 0, sizeof(remote_addr));
+		remote_addr.sin_family = AF_INET;
+		remote_addr.sin_port = htons(53);
+		remote_addr.sin_addr = ((struct sockaddr_in *)dst->ai_addr)->sin_addr;
+
+		if (connect(sock, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0)
+		{
+			perror("Connect failed");
+			close(sock);
+			return SOCKET_ERROR;
+		}
+
+		socklen_t addr_len = sizeof(local_addr);
+		if (getsockname(sock, (struct sockaddr *)&local_addr, &addr_len) < 0)
+		{
+			perror("getsockname failed");
+			close(sock);
+			return SOCKET_ERROR;
+		}
+
+		src_info->ip = malloc(INET_ADDRSTRLEN);
+		if (src_info->ip == NULL)
+		{
+			close(sock);
+			return -1;
+		}
+		/* Copy ip into struct */
+		if (inet_ntop(AF_INET, &local_addr.sin_addr, src_info->ip, INET_ADDRSTRLEN) == NULL)
+		{
+			return -1;
+		}
+
+		src_info->port = ntohs(local_addr.sin_port);
+	}
+	else if (dst->ai_family == AF_INET6)
+	{
+		memset(&remote_addr6, 0, sizeof(remote_addr6));
+		remote_addr6.sin6_family = AF_INET6;
+		remote_addr6.sin6_port = htons(53);
+		remote_addr6.sin6_addr = ((struct sockaddr_in6 *)dst->ai_addr)->sin6_addr;
+
+		if (connect(sock, (struct sockaddr *)&remote_addr6, sizeof(remote_addr6)) < 0)
+		{
+			perror("Connect failed");
+			close(sock);
+			return SOCKET_ERROR;
+		}
+
+		socklen_t addr_len = sizeof(local_addr6);
+		if (getsockname(sock, (struct sockaddr *)&local_addr6, &addr_len) < 0)
+		{
+			perror("getsockname failed");
+			close(sock);
+			return SOCKET_ERROR;
+		}
+
+		src_info->ip = malloc(INET6_ADDRSTRLEN);
+		if (src_info->ip == NULL)
+		{
+			close(sock);
+			return -1;
+		}
+
+		if (inet_ntop(AF_INET6, &local_addr6.sin6_addr, src_info->ip, INET6_ADDRSTRLEN) == NULL)
+		{
+			return -1;
+		}
+
+		src_info->port = ntohs(local_addr6.sin6_port);
+	}
+	else
+	{
+		// error
+		return -1;
 	}
 
 	close(sock);
+	return 0;
+}
 
-	// Convert IP to string
-	char *ip_str = malloc(INET_ADDRSTRLEN);
-	if (ip_str)
-	{
-		inet_ntop(AF_INET, &local_addr.sin_addr, ip_str, INET_ADDRSTRLEN);
-	}
-	printf("IP: %s\n", ip_str);
-	free(ip_str);
-	int port = 0;
-	port = ntohs(local_addr.sin_port);
-	printf("PORT: %d\n", port);
-
-	/****************************************************************************************/
+int port_scan(char *address)
+{
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
 	{
 		return UNKNOWN_HOST;
 	}
+
+	struct src_info src_info = {0};
+	get_src_info(dst, &src_info);
 
 	struct protoent *protocol = getprotobyname("tcp");
 	if (protocol == NULL)
@@ -123,73 +193,73 @@ int port_scan(char *address)
 		return SOCKET_ERROR;
 	}
 
-	/* Use `connect` to make the OS set source IP and source port */
-	rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
-	if (rv != 0)
-	{
-		free_dst_addr_struct(dst);
-		perror("connect");
-		close(sfd);
-		return SOCKET_ERROR;
-	}
+	rv = bind(sfd, )
 
-	/* Get the assigned source port */
-	struct sockaddr_storage storage;
-	socklen_t saddr_len = sizeof(storage);
-	rv = getsockname(sfd, (struct sockaddr *)&storage, &saddr_len);
-	if (rv == -1)
-	{
-		free_dst_addr_struct(dst);
-		printf("Getsock\n");
-		close(sfd);
-		return SOCKET_ERROR;
-	}
-
-	printf("saddr_len: %d\n", saddr_len);
-
-	struct sockaddr_in *s_addr_in = NULL;
-	struct sockaddr_in6 *s_addr_in6 = NULL;
-	u_int16_t src_port = 0;
-	if (dst->ai_family == AF_INET)
-	{
-		s_addr_in = (struct sockaddr_in *)&storage;
-		src_port = s_addr_in->sin_port;
-		char ip_str[INET_ADDRSTRLEN];
-		if (inet_ntop(AF_INET, &s_addr_in->sin_addr, ip_str, INET_ADDRSTRLEN) != NULL)
+		/* Use `connect` to make the OS set source IP and source port */
+		/*rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
+		if (rv != 0)
 		{
-			printf("Source IP: %s\n", ip_str);
+			free_dst_addr_struct(dst);
+			perror("connect");
+			close(sfd);
+			return SOCKET_ERROR;
+		}*/
+
+		/* Get the assigned source port */
+		/*struct sockaddr_storage storage;
+		socklen_t saddr_len = sizeof(storage);
+		rv = getsockname(sfd, (struct sockaddr *)&storage, &saddr_len);
+		if (rv == -1)
+		{
+			free_dst_addr_struct(dst);
+			printf("Getsock\n");
+			close(sfd);
+			return SOCKET_ERROR;
+		}*/
+
+		/*struct sockaddr_in *s_addr_in = NULL;
+		struct sockaddr_in6 *s_addr_in6 = NULL;
+		u_int16_t src_port = 0;
+		if (dst->ai_family == AF_INET)
+		{
+			s_addr_in = (struct sockaddr_in *)&storage;
+			src_port = s_addr_in->sin_port;
+			char ip_str[INET_ADDRSTRLEN];
+			if (inet_ntop(AF_INET, &s_addr_in->sin_addr, ip_str, INET_ADDRSTRLEN) != NULL)
+			{
+				printf("Source IP: %s\n", ip_str);
+			}
+			else
+			{
+				perror("inet_ntop");
+				close(sfd);
+				return SOCKET_ERROR;
+			}
+
+			printf("Source PORT: %d\n", ntohs(src_port));
+		}
+		else if (dst->ai_family == AF_INET6)
+		{
+			s_addr_in6 = (struct sockaddr_in6 *)&storage;
+			char ip_str[INET6_ADDRSTRLEN];
+			if (inet_ntop(AF_INET6, &s_addr_in6->sin6_addr, ip_str, INET6_ADDRSTRLEN) != NULL)
+			{
+				printf("IP: %s\n", ip_str);
+			}
+			printf("%d\n", ntohs(s_addr_in6->sin6_port));
+			return 0;
+			// src_port = storage.sin6_port;
+			// printf("PORT: %d\n", ntohs(src_port));
 		}
 		else
 		{
-			perror("inet_ntop");
-			close(sfd);
-			return SOCKET_ERROR;
-		}
+			// error
+		}*/
 
-		printf("Source PORT: %d\n", ntohs(src_port));
-	}
-	else if (dst->ai_family == AF_INET6)
-	{
-		s_addr_in6 = (struct sockaddr_in6 *)&storage;
-		char ip_str[INET6_ADDRSTRLEN];
-		if (inet_ntop(AF_INET6, &s_addr_in6->sin6_addr, ip_str, INET6_ADDRSTRLEN) != NULL)
-		{
-			printf("IP: %s\n", ip_str);
-		}
-		printf("%d\n", ntohs(s_addr_in6->sin6_port));
-		return 0;
-		// src_port = storage.sin6_port;
-		// printf("PORT: %d\n", ntohs(src_port));
-	}
-	else
-	{
-		// error
-	}
+		// TODO Fix IP header as well for Linux support
 
-	// TODO Fix IP header as well for Linux support
-
-	/* Declare header and init all fields to 0 */
-	tcp_header_t tcp_hdr;
+		/* Declare header and init all fields to 0 */
+		tcp_header_t tcp_hdr;
 	memset(&tcp_hdr, 0, sizeof(tcp_header_t));
 	tcp_hdr.sport = src_port;
 	tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
@@ -367,6 +437,7 @@ int port_scan(char *address)
 	// tcp_hdr.checksum = htons(0);
 	//}
 
+	free(src_info.ip);
 	free_dst_addr_struct(dst);
 	close(sfd);
 
