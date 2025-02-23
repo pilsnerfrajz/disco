@@ -8,11 +8,11 @@
  * @brief Struct for easier setting of bits in the Data Offset and Reserved
  * fields of the TCP header.
  */
-typedef struct tcp_offset_rsrvd
+/*typedef struct tcp_offset_rsrvd
 {
 	u_int8_t offset : 4;
 	u_int8_t rsrved : 4;
-} tcp_offset_rsrvd_t;
+} tcp_offset_rsrvd_t;*/
 
 /**
  * @brief Tcp header defined in RFC 9293.
@@ -24,7 +24,15 @@ typedef struct tcp_header
 	u_int16_t dport;
 	u_int32_t seq;
 	u_int32_t ack;
-	tcp_offset_rsrvd_t offset_rsrvd;
+	union
+	{
+		uint8_t offset_rsrvd;
+		struct
+		{
+			uint8_t offset : 4;
+			uint8_t reserved : 4;
+		} bits;
+	} offset_rsrvd;
 	u_int8_t flags;
 	u_int16_t window;
 	u_int16_t checksum;

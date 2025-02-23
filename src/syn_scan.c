@@ -35,7 +35,7 @@
 struct src_info
 {
 	char *ip;
-	int port;
+	u_int16_t port;
 };
 
 /**
@@ -94,6 +94,7 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 		/* Copy ip into struct */
 		if (inet_ntop(AF_INET, &local_addr.sin_addr, src_info->ip, INET_ADDRSTRLEN) == NULL)
 		{
+			close(sock);
 			return -1;
 		}
 
@@ -130,6 +131,7 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 
 		if (inet_ntop(AF_INET6, &local_addr6.sin6_addr, src_info->ip, INET6_ADDRSTRLEN) == NULL)
 		{
+			close(sock);
 			return -1;
 		}
 
@@ -138,6 +140,7 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 	else
 	{
 		// error
+		close(sock);
 		return -1;
 	}
 
@@ -179,93 +182,77 @@ int port_scan(char *address)
 	if (rv != 0)
 	{
 		free_dst_addr_struct(dst);
-		printf("Socket op\n");
 		close(sfd);
 		return SOCKET_ERROR;
 	}
 
+	// TODO Keep?
 	int one = 1;
 	rv = setsockopt(sfd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
 	if (rv < 0)
 	{
-		perror("setsockopt IP_HDRINCL failed");
+		perror("setsockopt");
+		free_dst_addr_struct(dst);
 		close(sfd);
 		return SOCKET_ERROR;
 	}
 
-	rv = bind(sfd, )
-
-		/* Use `connect` to make the OS set source IP and source port */
-		/*rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
-		if (rv != 0)
+	/* Fix struct to use in bind */
+	struct sockaddr *bind_ptr;
+	socklen_t bind_ptr_len = 0;
+	struct sockaddr_in bind_ipv4;
+	struct sockaddr_in6 bind_ipv6;
+	if (dst->ai_family == AF_INET)
+	{
+		memset(&bind_ipv4, 0, sizeof(struct sockaddr_in));
+		bind_ipv4.sin_family = AF_INET;
+		bind_ipv4.sin_port = htons(src_info.port);
+		if (inet_pton(AF_INET, src_info.ip, &bind_ipv4.sin_addr) <= 0)
 		{
 			free_dst_addr_struct(dst);
-			perror("connect");
 			close(sfd);
 			return SOCKET_ERROR;
-		}*/
+		}
 
-		/* Get the assigned source port */
-		/*struct sockaddr_storage storage;
-		socklen_t saddr_len = sizeof(storage);
-		rv = getsockname(sfd, (struct sockaddr *)&storage, &saddr_len);
-		if (rv == -1)
+		bind_ptr = (struct sockaddr *)&bind_ipv4;
+		bind_ptr_len = sizeof(struct sockaddr_in);
+	}
+	else if (dst->ai_family == AF_INET6)
+	{
+		memset(&bind_ipv6, 0, sizeof(struct sockaddr_in6));
+		bind_ipv6.sin6_family = AF_INET6;
+		bind_ipv6.sin6_port = htons(src_info.port);
+		if (inet_pton(AF_INET6, src_info.ip, &bind_ipv6.sin6_addr) <= 0)
 		{
 			free_dst_addr_struct(dst);
-			printf("Getsock\n");
 			close(sfd);
 			return SOCKET_ERROR;
-		}*/
-
-		/*struct sockaddr_in *s_addr_in = NULL;
-		struct sockaddr_in6 *s_addr_in6 = NULL;
-		u_int16_t src_port = 0;
-		if (dst->ai_family == AF_INET)
-		{
-			s_addr_in = (struct sockaddr_in *)&storage;
-			src_port = s_addr_in->sin_port;
-			char ip_str[INET_ADDRSTRLEN];
-			if (inet_ntop(AF_INET, &s_addr_in->sin_addr, ip_str, INET_ADDRSTRLEN) != NULL)
-			{
-				printf("Source IP: %s\n", ip_str);
-			}
-			else
-			{
-				perror("inet_ntop");
-				close(sfd);
-				return SOCKET_ERROR;
-			}
-
-			printf("Source PORT: %d\n", ntohs(src_port));
 		}
-		else if (dst->ai_family == AF_INET6)
-		{
-			s_addr_in6 = (struct sockaddr_in6 *)&storage;
-			char ip_str[INET6_ADDRSTRLEN];
-			if (inet_ntop(AF_INET6, &s_addr_in6->sin6_addr, ip_str, INET6_ADDRSTRLEN) != NULL)
-			{
-				printf("IP: %s\n", ip_str);
-			}
-			printf("%d\n", ntohs(s_addr_in6->sin6_port));
-			return 0;
-			// src_port = storage.sin6_port;
-			// printf("PORT: %d\n", ntohs(src_port));
-		}
-		else
-		{
-			// error
-		}*/
 
-		// TODO Fix IP header as well for Linux support
+		bind_ptr = (struct sockaddr *)&bind_ipv6;
+		bind_ptr_len = sizeof(struct sockaddr_in6);
+	}
 
-		/* Declare header and init all fields to 0 */
-		tcp_header_t tcp_hdr;
+	rv = bind(sfd, bind_ptr, bind_ptr_len);
+	if (rv == -1)
+	{
+		perror("bind");
+		free_dst_addr_struct(dst);
+		close(sfd);
+		return SOCKET_ERROR;
+	}
+
+	// TODO Fix IP header as well for Linux support
+
+	/* Declare header and init all fields to 0 */
+	tcp_header_t tcp_hdr;
 	memset(&tcp_hdr, 0, sizeof(tcp_header_t));
-	tcp_hdr.sport = src_port;
+	tcp_hdr.sport = htons(src_info.port);
 	tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
 	tcp_hdr.ack = htonl(0);
-	tcp_hdr.offset_rsrvd.offset = 5;
-	tcp_hdr.flags = SYN;
+	tcp_hdr.offset_rsrvd.bits.offset = 5;
+	tcp_hdr.offset_rsrvd.bits.reserved = 0;
+	tcp_hdr.flags |= SYN;
 	tcp_hdr.window = htons(1024); /* Change to random later? */
 
 	/* Fill in pseudo header depending on the address family of the target */
@@ -274,13 +261,37 @@ int port_scan(char *address)
 	if (dst->ai_family == AF_INET)
 	{
 		memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
-		tcp_pseudo_ipv4.src_ip = s_addr_in->sin_addr.s_addr;
+		tcp_pseudo_ipv4.src_ip = bind_ipv4.sin_addr.s_addr;
 		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
 		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
 		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
 
+		printf("TCP pseudo header len: %d\n", ntohs(tcp_pseudo_ipv4.tcp_len));
+		printf("Raw Packet (TCP Pseudo Header):\n");
+		for (size_t i = 0; i < sizeof(tcp_pseudo_ipv4_t); i++)
+		{
+			printf("%02x ", ((unsigned char *)&tcp_pseudo_ipv4)[i]);
+			if ((i + 1) % 16 == 0)
+			{
+				printf("\n");
+			}
+		}
+		printf("\n");
+
 		// TODO Change this
 		tcp_hdr.dport = htons(80);
+
+		tcp_hdr.checksum = 0;
+		printf("Raw Packet (TCP Header Before Checksum):\n");
+		for (size_t i = 0; i < sizeof(tcp_header_t); i++)
+		{
+			printf("%02x ", ((unsigned char *)&tcp_hdr)[i]);
+			if ((i + 1) % 16 == 0)
+			{
+				printf("\n");
+			}
+		}
+		printf("\n");
 
 		/* Calculate checksum */
 		size_t checksum_len = sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t);
@@ -292,28 +303,40 @@ int port_scan(char *address)
 			return MEM_ALLOC_ERROR;
 		}
 
-		tcp_hdr.checksum = 0;
-		tcp_hdr.checksum = htons(calc_checksum(checksum_buf, checksum_len));
-		printf("Checksum: %d\n", ntohs(tcp_hdr.checksum));
-		char nprint[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &(s_addr_in->sin_addr), nprint, INET_ADDRSTRLEN);
-		printf("SRC: %s\n", nprint);
+		// printf("Checksum len: %zu\n", checksum_len);
 
 		/* Copy pseudo header and TCP header into a buffer */
-		memcpy(checksum_buf, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
-		memcpy(checksum_buf + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
+		u_int8_t *temp = checksum_buf;
+		memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
+		memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
+
+		tcp_hdr.checksum = htons(calc_checksum(checksum_buf, checksum_len));
+		// printf("Checksum for TCP header: %d\n", ntohs(tcp_hdr.checksum));
+
+		// printf("TCP pseudo header len: %d\n", ntohs(tcp_pseudo_ipv4.tcp_len));
+		printf("Raw Packet (TCP Header):\n");
+		for (size_t i = 0; i < sizeof(tcp_header_t); i++)
+		{
+			printf("%02x ", ((unsigned char *)&tcp_hdr)[i]);
+			if ((i + 1) % 16 == 0)
+			{
+				printf("\n");
+			}
+		}
+		printf("\n");
 
 		// TODO ADD IP HEADER
 		struct ip ip_header;
 		memset(&ip_header, 0, sizeof(struct ip));
-		ip_header.ip_dst = ((struct sockaddr_in *)dst)->sin_addr;
-		ip_header.ip_src = s_addr_in->sin_addr;
+		ip_header.ip_dst = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr;
+		ip_header.ip_src = bind_ipv4.sin_addr;
 		ip_header.ip_v = 4;	 /* Version 4 */
 		ip_header.ip_hl = 5; /* Header length, no options */
 		ip_header.ip_len = htons(sizeof(struct ip) + sizeof(tcp_header_t));
 		ip_header.ip_id = htons(arc4random() & 0xffff); /* 16 bits */
 		ip_header.ip_ttl = 64;							/* Mac and Linux default */
 		ip_header.ip_p = (u_char)protocol->p_proto;		/* TCP */
+		ip_header.ip_sum = htons(0);
 		ip_header.ip_sum = htons(calc_checksum(&ip_header, sizeof(struct ip)));
 
 		struct ip_packet
@@ -322,18 +345,24 @@ int port_scan(char *address)
 			tcp_header_t tcp_hdr;
 		};
 
+		printf("IP Checksum: %d\n", ntohs(ip_header.ip_sum));
+		printf("Raw Packet (IP Header):\n");
+		for (size_t i = 0; i < sizeof(struct ip); i++)
+		{
+			printf("%02x ", ((unsigned char *)&ip_header)[i]);
+			if ((i + 1) % 16 == 0)
+			{
+				printf("\n");
+			}
+		}
+		printf("\n");
+
 		struct ip_packet ip_pkt = {
 			.ip_hdr = ip_header,
 			.tcp_hdr = tcp_hdr,
 		};
 
-		/*int optval = 1;
-		if (setsockopt(sfd, IPPROTO_IP, IP_HDRINCL, &optval, sizeof(optval)) < 0)
-		{
-			perror("setsockopt");
-			return SOCKET_ERROR;
-		}*/
-
+		printf("TCP Checksum: %d\n", ntohs(tcp_hdr.checksum));
 		printf("Raw Packet (IP Header + TCP Header):\n");
 		for (size_t i = 0; i < sizeof(struct ip_packet); i++)
 		{
@@ -346,23 +375,70 @@ int port_scan(char *address)
 		printf("\n");
 
 		// send to first port
-		u_int8_t *send_buf = (u_int8_t *)&ip_pkt;
-		ssize_t bytes_left = sizeof(struct ip_packet);
+		struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
+		dest_ip_and_port->sin_port = tcp_hdr.dport;
+		dest_ip_and_port->sin_family = AF_INET;
+
+		printf("Destination IP: %s\n", inet_ntoa(dest_ip_and_port->sin_addr));
+		printf("Destination Port: %d\n", ntohs(dest_ip_and_port->sin_port));
+
+		rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
+		if (rv != 0)
+		{
+			free_dst_addr_struct(dst);
+			perror("connect");
+			close(sfd);
+			return SOCKET_ERROR;
+		}
+
+		size_t packet_len = sizeof(struct ip) + sizeof(tcp_header_t);
+		/*u_int8_t *send_buf = malloc(packet_len);
+		if (send_buf == NULL)
+		{
+			free_dst_addr_struct(dst);
+			free(checksum_buf);
+			free(src_info.ip);
+			perror("sendto");
+			close(sfd);
+			return SOCKET_ERROR;
+		}
+		memset(send_buf, 0, packet_len);
+		memcpy(send_buf, &ip_pkt.ip_hdr, sizeof(struct ip));
+		memcpy(send_buf + sizeof(struct ip), &ip_pkt.tcp_hdr, sizeof(tcp_header_t));*/
+
+		/*ssize_t bytes_left = packet_len;
+		printf("Raw Packet (Send buf):\n");
+		for (size_t i = 0; i < packet_len; i++)
+		{
+			printf("%02x ", ((unsigned char *)&send_buf)[i + 32]);
+			if ((i + 1) % 16 == 0)
+			{
+				printf("\n");
+			}
+		}
+		printf("\n");*/
+
 		ssize_t total_sent = 0;
 		ssize_t sent;
-		while (total_sent < bytes_left)
+		// while (total_sent < bytes_left)
+		//{
+		/*sent = sendto(sfd, send_buf, bytes_left, 0,
+					  dst->ai_addr,
+					  sizeof((struct sockaddr_in *)dst)->sin_addr);*/
+		// sent = write(sfd, send_buf, bytes_left);
+		sent = send(sfd, &ip_pkt, packet_len, 0);
+		if (sent == -1)
 		{
-			sent = send(sfd, send_buf + total_sent, bytes_left - total_sent, 0);
-			if (sent == -1)
-			{
-				free_dst_addr_struct(dst);
-				free(checksum_buf);
-				perror("send");
-				close(sfd);
-				return SOCKET_ERROR;
-			}
-			total_sent += sent;
+			printf("Error: %s (%d)\n", strerror(errno), errno);
+			free_dst_addr_struct(dst);
+			free(checksum_buf);
+			perror("sendto");
+			close(sfd);
+			return SOCKET_ERROR;
 		}
+		printf("SENT: %zd\n", sent);
+		total_sent += sent;
+		//}
 
 		// wait for answer and check RST or SYN-ACK
 		for (int retry = 0; retry < RETRIES; retry++)
@@ -417,11 +493,11 @@ int port_scan(char *address)
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
-		memset(&tcp_pseudo_ipv6, 0, sizeof(tcp_pseudo_ipv6_t));
+		/*memset(&tcp_pseudo_ipv6, 0, sizeof(tcp_pseudo_ipv6_t));
 		tcp_pseudo_ipv6.src_ip = s_addr_in6->sin6_addr;
 		tcp_pseudo_ipv6.dst_ip = ((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr;
 		tcp_pseudo_ipv6.next = protocol->p_proto;
-		tcp_pseudo_ipv6.length = htonl(sizeof(tcp_header_t));
+		tcp_pseudo_ipv6.length = htonl(sizeof(tcp_header_t));*/
 	}
 	else
 	{
