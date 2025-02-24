@@ -443,6 +443,8 @@ int port_scan(char *address)
 			total_sent += sent;
 		}
 
+		// TODO USE LIBPCAP ON MAC. THE OS SEEMS TO INTERCEPT ALL MESSAGES COMING IN
+
 		// wait for answer and check RST or SYN-ACK
 		for (int retry = 0; retry < RETRIES; retry++)
 		{
@@ -459,6 +461,9 @@ int port_scan(char *address)
 			}
 
 			struct ip *ip_len = (struct ip *)recvbuf;
+
+			// TODO ADD MORE CHECKS
+
 			/* Jump past IP header and get the TCP header */
 			tcp_header_t *recv_tcp_hdr = (tcp_header_t *)(recvbuf + ip_len->ip_hl * 4);
 			if (recv_tcp_hdr->dport != tcp_hdr.sport)
