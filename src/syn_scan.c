@@ -481,10 +481,12 @@ int port_scan(char *address)
 			if (recv_tcp_hdr->flags == SYN_ACK)
 			{
 				printf("PORT IS OPEN\n");
+				break;
 			}
 			if (recv_tcp_hdr->flags == RST)
 			{
 				printf("PORT IS CLOSED\n");
+				break;
 			}
 		}
 
@@ -521,6 +523,7 @@ int port_scan(char *address)
 	// tcp_hdr.checksum = htons(0);
 	//}
 
+	// TODO CHECK FREEING OF ALLOCATED BUFFERS
 	free(src_info.ip);
 	free_dst_addr_struct(dst);
 	close(sfd);
