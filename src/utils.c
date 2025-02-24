@@ -110,51 +110,26 @@ int set_socket_options(int sfd, int s_timeout)
 	return 0;
 }
 
-// uint16_t calc_checksum(void *hdr, int len)
-// {
-// 	uint16_t *temp = hdr;
-// 	uint32_t sum = 0;
-
-// 	/* count 16 bits each iteration */
-// 	for (sum = 0; len > 1; len -= 2)
-// 	{
-// 		sum += *temp++;
-// 	}
-
-// 	if (len == 1)
-// 	{
-// 		sum += *(uint8_t *)temp;
-// 	}
-
-// 	while (sum >> 16)
-// 	{
-// 		sum = (sum >> 16) + (sum & 0xffff);
-// 	}
-
-// 	return ~sum;
-// }
-
 uint16_t calc_checksum(void *hdr, int len)
 {
 	uint16_t *temp = hdr;
 	uint32_t sum = 0;
 
-	/* Sum 16-bit words */
-	while (len > 1)
+	/* count 16 bits each iteration */
+	for (sum = 0; len > 1; len -= 2)
 	{
 		sum += *temp++;
-		len -= 2;
 	}
 
-	/* Handle remaining odd byte */
 	if (len == 1)
 	{
-		sum += *(uint8_t *)temp << 8; // Shift last byte to high-order position
+		sum += *(uint8_t *)temp;
 	}
 
-	/* Fold sum to 16-bit */
-	sum = (sum & 0xFFFF) + (sum >> 16);
-	sum += (sum >> 16);
+	while (sum >> 16)
+	{
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
 
 	return ~sum;
 }
