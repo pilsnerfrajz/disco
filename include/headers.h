@@ -5,16 +5,6 @@
 #include <arpa/inet.h>
 
 /**
- * @brief Struct for easier setting of bits in the Data Offset and Reserved
- * fields of the TCP header.
- */
-/*typedef struct tcp_offset_rsrvd
-{
-	u_int8_t offset : 4;
-	u_int8_t rsrved : 4;
-} tcp_offset_rsrvd_t;*/
-
-/**
  * @brief Tcp header defined in RFC 9293.
  * https://www.rfc-editor.org/rfc/rfc9293#name-header-format
  */
@@ -29,8 +19,8 @@ typedef struct tcp_header
 		uint8_t offset_rsrvd;
 		struct
 		{
-			uint8_t offset : 4;
 			uint8_t reserved : 4;
+			uint8_t offset : 4;
 		} bits;
 	} offset_rsrvd;
 	u_int8_t flags;
