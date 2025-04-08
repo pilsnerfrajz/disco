@@ -188,17 +188,6 @@ int port_scan(char *address)
 		return SOCKET_ERROR;
 	}
 
-	// TODO Keep? Not needed on Linux
-	/*int one = 1;
-	rv = setsockopt(sfd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
-	if (rv < 0)
-	{
-		perror("setsockopt");
-		free_dst_addr_struct(dst);
-		close(sfd);
-		return SOCKET_ERROR;
-	}*/
-
 	/* Fix struct to use in bind */
 	struct sockaddr *bind_ptr;
 	socklen_t bind_ptr_len = 0;
