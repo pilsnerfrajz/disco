@@ -17,6 +17,9 @@
 
 #include <pcap/pcap.h> /* Read packets */
 
+#include <signal.h> /* Alarm to break pcap_loop */
+#include <unistd.h> /* alarm() */
+
 #define SYN 0x02	 /* Sets the SYN flag in the TCP flag field */
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
 #define RST 0x04	 /* Sets the RST flag in the TCP flag field */
@@ -24,6 +27,9 @@
 #define RETRIES 3
 #define IP_PACKET_LEN 65535
 #define CAP_TIMEOUT 1000 /* Milliseconds */
+#define ALARM_SEC 2
+#define ETH_TYPE_IP 0x0800
+#define IP_PROTO_TCP 0x06
 
 /*
  * Max IPv4 header size = 60 bytes
@@ -42,7 +48,53 @@ struct src_info
 	u_int16_t port;
 };
 
+/* pcap struct to store info from callback function */
+struct callback_data
+{
+	short port_status;
+};
+
 static pcap_t *handle;
+
+static void break_capture(int signum)
+{
+	(void)signum;
+	pcap_breakloop(handle);
+	return;
+}
+
+/* Callback function for processing the received frames */
+void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
+					 const u_char *bytes)
+{
+	if (pkt_hdr->caplen <
+		(sizeof(ethernet_header_t) + sizeof(struct ip) + sizeof(tcp_header_t)))
+	{
+		return;
+	}
+
+	struct callback_data *c_data = (struct callback_data *)user;
+	ethernet_header_t *eth = (ethernet_header_t *)bytes;
+	if (ntohs(eth->ptype) != ETH_TYPE_IP)
+	{
+		return;
+	}
+	struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
+	if (ip_hdr->ip_p != IP_PROTO_TCP)
+	{
+		return;
+	}
+	int ip_len = ip_hdr->ip_hl * 4;
+	tcp_header_t *tcp_hdr =
+		(struct tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
+	if (tcp_hdr->flags != SYN_ACK)
+	{
+		return;
+	}
+
+	c_data->port_status = 1;
+	pcap_breakloop(handle);
+}
 
 /**
  * @brief Gets the source IP and possible port used to connect to the target in
@@ -379,9 +431,6 @@ int port_scan(char *address)
 		dest_ip_and_port->sin_port = tcp_hdr.dport;
 		dest_ip_and_port->sin_family = AF_INET;
 
-		printf("Destination IP: %s\n", inet_ntoa(dest_ip_and_port->sin_addr));
-		printf("Destination Port: %d\n", ntohs(dest_ip_and_port->sin_port));
-
 		/*rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
 		if (rv != 0)
 		{
@@ -433,7 +482,6 @@ int port_scan(char *address)
 				close(sfd);
 				return SOCKET_ERROR;
 			}
-			printf("SENT: %zd\n", sent);
 			total_sent += sent;
 		}
 
@@ -455,6 +503,8 @@ int port_scan(char *address)
 		}
 
 		struct pcap_if *if_name = NULL;
+		char *if_ip = inet_ntoa(ip_header.ip_src);
+
 		for (pcap_if_t *d = alldevs; d; d = d->next)
 		{
 			for (pcap_addr_t *a = d->addresses; a; a = a->next)
@@ -462,16 +512,20 @@ int port_scan(char *address)
 				if (a->addr && a->addr->sa_family == AF_INET)
 				{
 					struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
-					if (strcmp(inet_ntoa(sin->sin_addr), inet_ntoa(ip_header.ip_src)) == 0)
+					if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
 					{
-						printf("Matching interface: %s\n", d->name);
 						if_name = d;
+						break;
 					}
 					else
 					{
 						return IFACE_ERROR;
 					}
 				}
+			}
+			if (if_name)
+			{
+				break;
 			}
 		}
 
@@ -488,10 +542,12 @@ int port_scan(char *address)
 
 		struct bpf_program filter;
 		char filter_expr[128];
+		char *dst_ip = src_info.ip;
+		char *src_ip = address;
 		if (snprintf(filter_expr, sizeof(filter_expr),
-					 "src %s and dst %s and src port %d and dst port %d and tcp",
-					 inet_ntoa(ip_header.ip_dst),
-					 inet_ntoa(ip_header.ip_src),
+					 "src %s and dst %s and src port %d and dst port %d",
+					 address,
+					 src_info.ip,
 					 ntohs(tcp_hdr.dport),
 					 ntohs(tcp_hdr.sport)) < 0)
 		{
@@ -512,6 +568,29 @@ int port_scan(char *address)
 		{
 			pcap_close(handle);
 			return PCAP_FILTER;
+		}
+
+		struct callback_data c_data = {.port_status = 0};
+
+		/* Stop sniff if timeout */
+		signal(SIGALRM, break_capture);
+
+		/* Start capture timer */
+		alarm(ALARM_SEC);
+
+		rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)&c_data);
+		if (rv == PCAP_ERROR)
+		{
+			pcap_close(handle);
+			return PCAP_LOOP;
+		}
+
+		signal(SIGALRM, SIG_DFL);
+
+		if (c_data.port_status)
+		{
+			printf("PORT %d OPEN!\n", ntohs(tcp_hdr.dport));
+			return SUCCESS;
 		}
 
 		// wait for answer and check RST or SYN-ACK
@@ -569,6 +648,10 @@ int port_scan(char *address)
 
 		// free
 		free(checksum_buf);
+		pcap_close(handle);
+		pcap_freealldevs(alldevs);
+
+		return NO_RESPONSE;
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
@@ -577,6 +660,8 @@ int port_scan(char *address)
 		tcp_pseudo_ipv6.dst_ip = ((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr;
 		tcp_pseudo_ipv6.next = protocol->p_proto;
 		tcp_pseudo_ipv6.length = htonl(sizeof(tcp_header_t));*/
+
+		return NO_RESPONSE;
 	}
 	else
 	{
