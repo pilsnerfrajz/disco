@@ -487,7 +487,7 @@ int port_scan(char *address)
 		}
 
 		struct bpf_program filter;
-		char filter_expr[64];
+		char filter_expr[128];
 		if (snprintf(filter_expr, sizeof(filter_expr),
 					 "src %s and dst %s and src port %d and dst port %d and tcp",
 					 inet_ntoa(ip_header.ip_dst),
@@ -502,6 +502,7 @@ int port_scan(char *address)
 		rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
 		if (rv != 0)
 		{
+			pcap_perror(handle, "Compile");
 			pcap_close(handle);
 			return PCAP_FILTER;
 		}
