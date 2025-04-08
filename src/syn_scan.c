@@ -486,6 +486,33 @@ int port_scan(char *address)
 			return PCAP_OPEN;
 		}
 
+		struct bpf_program filter;
+		char filter_expr[64];
+		if (snprintf(filter_expr, sizeof(filter_expr),
+					 "src %s and dst %s and src port %d and dst port %d and tcp",
+					 inet_ntoa(ip_header.ip_dst),
+					 inet_ntoa(ip_header.ip_src),
+					 ntohs(tcp_hdr.dport),
+					 ntohs(tcp_hdr.sport)) < 0)
+		{
+			pcap_close(handle);
+			return PCAP_FILTER;
+		}
+
+		rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
+		if (rv != 0)
+		{
+			pcap_close(handle);
+			return PCAP_FILTER;
+		}
+
+		rv = pcap_setfilter(handle, &filter);
+		if (rv != 0)
+		{
+			pcap_close(handle);
+			return PCAP_FILTER;
+		}
+
 		// wait for answer and check RST or SYN-ACK
 		/*for (int retry = 0; retry < RETRIES; retry++)
 		{
