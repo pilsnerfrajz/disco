@@ -322,7 +322,6 @@ int port_scan(char *address)
 		}
 		printf("\n");*/
 
-		// TODO ADD IP HEADER
 		struct ip ip_header;
 		memset(&ip_header, 0, sizeof(struct ip));
 		ip_header.ip_dst = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr;
