@@ -15,6 +15,8 @@
 #include "../include/error.h"
 #include "../include/headers.h"
 
+#include <pcap/pcap.h>	/* Read packets */
+
 #define SYN 0x02	 /* Sets the SYN flag in the TCP flag field */
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
 #define RST 0x04	 /* Sets the RST flag in the TCP flag field */
