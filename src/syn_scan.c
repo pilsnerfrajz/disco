@@ -15,13 +15,15 @@
 #include "../include/error.h"
 #include "../include/headers.h"
 
-#include <pcap/pcap.h>	/* Read packets */
+#include <pcap/pcap.h> /* Read packets */
 
 #define SYN 0x02	 /* Sets the SYN flag in the TCP flag field */
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
 #define RST 0x04	 /* Sets the RST flag in the TCP flag field */
 #define TIMEOUT_SECONDS 2
 #define RETRIES 3
+#define IP_PACKET_LEN 65535
+#define CAP_TIMEOUT 1000 /* Milliseconds */
 
 /*
  * Max IPv4 header size = 60 bytes
@@ -39,6 +41,8 @@ struct src_info
 	char *ip;
 	u_int16_t port;
 };
+
+static pcap_t *handle;
 
 /**
  * @brief Gets the source IP and possible port used to connect to the target in
@@ -434,9 +438,56 @@ int port_scan(char *address)
 		}
 
 		// TODO USE LIBPCAP ON MAC. THE OS SEEMS TO INTERCEPT ALL MESSAGES COMING IN
+		/* Initialize library */
+		char errbuf[PCAP_ERRBUF_SIZE];
+		int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
+		if (rv != 0)
+		{
+			return PCAP_INIT;
+		}
+
+		/* Get capture interface */
+		pcap_if_t *alldevs;
+		if (pcap_findalldevs(&alldevs, errbuf) == -1)
+		{
+			fprintf(stderr, "Error: %s\n", errbuf);
+			return IFACE_ERROR;
+		}
+
+		struct pcap_if *if_name = NULL;
+		for (pcap_if_t *d = alldevs; d; d = d->next)
+		{
+			for (pcap_addr_t *a = d->addresses; a; a = a->next)
+			{
+				if (a->addr && a->addr->sa_family == AF_INET)
+				{
+					struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
+					if (strcmp(inet_ntoa(sin->sin_addr), inet_ntoa(ip_header.ip_src)) == 0)
+					{
+						printf("Matching interface: %s\n", d->name);
+						if_name = d;
+					}
+					else
+					{
+						return IFACE_ERROR;
+					}
+				}
+			}
+		}
+
+		handle = pcap_open_live(if_name->name, IP_PACKET_LEN, 0, CAP_TIMEOUT, errbuf);
+		if (handle == NULL)
+		{
+			/* Check if the error occured because of insufficient privileges */
+			if (strstr(errbuf, "Operation not permitted"))
+			{
+				return PERMISSION_ERROR;
+			}
+			return PCAP_OPEN;
+		}
 
 		// wait for answer and check RST or SYN-ACK
-		for (int retry = 0; retry < RETRIES; retry++)
+		/*for (int retry = 0; retry < RETRIES; retry++)
 		{
 			char recvbuf[TCP_IPv4_BUF];
 			rv = recv(sfd, recvbuf, TCP_IPv4_BUF, 0);
@@ -450,35 +501,35 @@ int port_scan(char *address)
 				return SOCKET_ERROR;
 			}
 
-			struct ip *ip_len = (struct ip *)recvbuf;
+			struct ip *ip_len = (struct ip *)recvbuf;*/
 
-			// TODO ADD MORE CHECKS
+		// TODO ADD MORE CHECKS
 
-			/* Jump past IP header and get the TCP header */
-			tcp_header_t *recv_tcp_hdr = (tcp_header_t *)(recvbuf + ip_len->ip_hl * 4);
-			if (recv_tcp_hdr->dport != tcp_hdr.sport)
-			{
-				continue;
-			}
-			if (recv_tcp_hdr->sport != tcp_hdr.dport)
-			{
-				continue;
-			}
-			if (tcp_hdr.seq + htonl(1) != recv_tcp_hdr->ack)
-			{
-				continue;
-			}
-			if (recv_tcp_hdr->flags == SYN_ACK)
-			{
-				printf("PORT IS OPEN\n");
-				break;
-			}
-			if (recv_tcp_hdr->flags == RST)
-			{
-				printf("PORT IS CLOSED\n");
-				break;
-			}
+		/* Jump past IP header and get the TCP header */
+		/*tcp_header_t *recv_tcp_hdr = (tcp_header_t *)(recvbuf + ip_len->ip_hl * 4);
+		if (recv_tcp_hdr->dport != tcp_hdr.sport)
+		{
+			continue;
 		}
+		if (recv_tcp_hdr->sport != tcp_hdr.dport)
+		{
+			continue;
+		}
+		if (tcp_hdr.seq + htonl(1) != recv_tcp_hdr->ack)
+		{
+			continue;
+		}
+		if (recv_tcp_hdr->flags == SYN_ACK)
+		{
+			printf("PORT IS OPEN\n");
+			break;
+		}
+		if (recv_tcp_hdr->flags == RST)
+		{
+			printf("PORT IS CLOSED\n");
+			break;
+		}
+	}*/
 
 		// print or save results
 
