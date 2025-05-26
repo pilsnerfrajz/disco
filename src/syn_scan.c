@@ -205,7 +205,7 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 	return 0;
 }
 
-int port_scan(char *address)
+int port_scan(char *address, short plower, short pupper)
 {
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
@@ -304,32 +304,6 @@ int port_scan(char *address)
 	tcp_pseudo_ipv6_t tcp_pseudo_ipv6;
 	if (dst->ai_family == AF_INET)
 	{
-		memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
-		tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
-		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
-		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
-		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
-
-		// TODO Change this
-		tcp_hdr.dport = htons(4444);
-
-		/* Calculate checksum */
-		size_t checksum_len = sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t);
-		u_int8_t *checksum_buf = malloc(checksum_len);
-		if (checksum_buf == NULL)
-		{
-			free_dst_addr_struct(dst);
-			close(sfd);
-			return MEM_ALLOC_ERROR;
-		}
-
-		/* Copy pseudo header and TCP header into a buffer */
-		u_int8_t *temp = checksum_buf;
-		memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
-		memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
-
-		tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
-
 		struct ip ip_header;
 		memset(&ip_header, 0, sizeof(struct ip));
 		ip_header.ip_dst = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr;
@@ -349,194 +323,190 @@ int port_scan(char *address)
 			tcp_header_t tcp_hdr;
 		};
 
-		struct ip_packet ip_pkt = {
-			.ip_hdr = ip_header,
-			.tcp_hdr = tcp_hdr,
-		};
+		memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
+		tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
+		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
+		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
+		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
 
-		// send to first port
-		struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
-		dest_ip_and_port->sin_port = tcp_hdr.dport;
-		dest_ip_and_port->sin_family = AF_INET;
-
-		size_t packet_len = sizeof(struct ip) + sizeof(tcp_header_t);
-		ssize_t bytes_left = sizeof(tcp_header_t);
-		ssize_t total_sent = 0;
-		ssize_t sent;
-		while (total_sent < bytes_left)
+		/* Calculate checksum */
+		size_t checksum_len = sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t);
+		u_int8_t *checksum_buf = malloc(checksum_len);
+		if (checksum_buf == NULL)
 		{
-			sent = sendto(sfd, &tcp_hdr + total_sent, bytes_left - total_sent, 0,
-						  dst->ai_addr,
-						  dst->ai_addrlen);
-			if (sent == -1)
-			{
-				free_dst_addr_struct(dst);
-				free(checksum_buf);
-				perror("sendto");
-				close(sfd);
-				return SOCKET_ERROR;
-			}
-			total_sent += sent;
+			free_dst_addr_struct(dst);
+			close(sfd);
+			return MEM_ALLOC_ERROR;
 		}
 
-		// TODO USE LIBPCAP ON MAC. THE OS SEEMS TO INTERCEPT ALL MESSAGES COMING IN
-		/* Initialize library */
-		char errbuf[PCAP_ERRBUF_SIZE];
-		int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
-		if (rv != 0)
-		{
-			return PCAP_INIT;
-		}
-
-		/* Get capture interface */
 		pcap_if_t *alldevs;
-		if (pcap_findalldevs(&alldevs, errbuf) == -1)
+		for (short p = plower; p <= pupper; p++)
 		{
-			fprintf(stderr, "Error: %s\n", errbuf);
-			return IFACE_ERROR;
-		}
+			// TODO Change this
+			memset(&tcp_hdr, 0, sizeof(tcp_header_t));
+			tcp_hdr.sport = htons(src_info.port);
+			tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
+			tcp_hdr.ack = htonl(0);
+			tcp_hdr.offset_rsrvd.bits.offset = 5;
+			tcp_hdr.offset_rsrvd.bits.reserved = 0;
+			tcp_hdr.flags |= SYN;
+			tcp_hdr.window = htons(1024); /* Change to random later? */
+			tcp_hdr.dport = htons(p);
 
-		struct pcap_if *if_name = NULL;
-		char *if_ip = src_info.ip;
+			/* Copy pseudo header and TCP header into a buffer */
+			u_int8_t *temp = checksum_buf;
+			memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
+			memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
 
-		for (pcap_if_t *d = alldevs; d; d = d->next)
-		{
-			for (pcap_addr_t *a = d->addresses; a; a = a->next)
+			tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
+
+			/*struct ip_packet ip_pkt = {
+				.ip_hdr = ip_header,
+				.tcp_hdr = tcp_hdr,
+			};*/
+
+			// send to first port
+			struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
+			dest_ip_and_port->sin_port = tcp_hdr.dport;
+			dest_ip_and_port->sin_family = AF_INET;
+
+			// size_t packet_len = sizeof(struct ip) + sizeof(tcp_header_t);
+			ssize_t bytes_left = sizeof(tcp_header_t);
+			ssize_t total_sent = 0;
+			ssize_t sent;
+			while (total_sent < bytes_left)
 			{
-				if (a->addr && a->addr->sa_family == AF_INET)
+				sent = sendto(sfd, &tcp_hdr + total_sent, bytes_left - total_sent, 0,
+							  dst->ai_addr,
+							  dst->ai_addrlen);
+				if (sent == -1)
 				{
-					struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
-					if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
+					free_dst_addr_struct(dst);
+					free(checksum_buf);
+					perror("sendto");
+					close(sfd);
+					return SOCKET_ERROR;
+				}
+				total_sent += sent;
+			}
+
+			// TODO USE LIBPCAP ON MAC. THE OS SEEMS TO INTERCEPT ALL MESSAGES COMING IN
+			/* Initialize library */
+			char errbuf[PCAP_ERRBUF_SIZE];
+			int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
+			if (rv != 0)
+			{
+				return PCAP_INIT;
+			}
+
+			/* Get capture interface */
+			// pcap_if_t *alldevs;
+			if (pcap_findalldevs(&alldevs, errbuf) == -1)
+			{
+				fprintf(stderr, "Error: %s\n", errbuf);
+				return IFACE_ERROR;
+			}
+
+			struct pcap_if *if_name = NULL;
+			char *if_ip = src_info.ip;
+
+			for (pcap_if_t *d = alldevs; d; d = d->next)
+			{
+				for (pcap_addr_t *a = d->addresses; a; a = a->next)
+				{
+					if (a->addr && a->addr->sa_family == AF_INET)
 					{
-						if_name = d;
-						break;
+						struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
+						if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
+						{
+							if_name = d;
+							break;
+						}
 					}
 				}
+				if (if_name)
+				{
+					break;
+				}
 			}
-			if (if_name)
+
+			if (!if_name)
 			{
-				break;
+				return IFACE_ERROR;
 			}
-		}
 
-		if (!if_name)
-		{
-			return IFACE_ERROR;
-		}
-
-		handle = pcap_open_live(if_name->name, IP_PACKET_LEN, 0, CAP_TIMEOUT, errbuf);
-		if (handle == NULL)
-		{
-			/* Check if the error occured because of insufficient privileges */
-			if (strstr(errbuf, "Operation not permitted"))
+			handle = pcap_open_live(if_name->name, IP_PACKET_LEN, 0, CAP_TIMEOUT, errbuf);
+			if (handle == NULL)
 			{
-				return PERMISSION_ERROR;
+				/* Check if the error occured because of insufficient privileges */
+				if (strstr(errbuf, "Operation not permitted"))
+				{
+					return PERMISSION_ERROR;
+				}
+				return PCAP_OPEN;
 			}
-			return PCAP_OPEN;
-		}
 
-		struct bpf_program filter;
-		char filter_expr[128];
-		if (snprintf(filter_expr, sizeof(filter_expr),
-					 "src %s and dst %s and src port %d and dst port %d",
-					 address,
-					 src_info.ip,
-					 ntohs(tcp_hdr.dport),
-					 ntohs(tcp_hdr.sport)) < 0)
-		// TODO Add loopback support
-		/*f (snprintf(filter_expr, sizeof(filter_expr),
-		"src port %d",
-		ntohs(tcp_hdr.dport)) < 0)*/
-		{
-			pcap_close(handle);
-			return PCAP_FILTER;
-		}
-
-		printf("%s\n", filter_expr);
-
-		rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
-		if (rv != 0)
-		{
-			pcap_perror(handle, "Compile");
-			pcap_close(handle);
-			return PCAP_FILTER;
-		}
-
-		rv = pcap_setfilter(handle, &filter);
-		if (rv != 0)
-		{
-			pcap_close(handle);
-			return PCAP_FILTER;
-		}
-
-		struct callback_data c_data = {.port_status = 0};
-
-		/* Stop sniff if timeout */
-		signal(SIGALRM, break_capture);
-
-		/* Start capture timer */
-		alarm(ALARM_SEC);
-
-		rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)&c_data);
-		if (rv == PCAP_ERROR)
-		{
-			pcap_close(handle);
-			return PCAP_LOOP;
-		}
-
-		signal(SIGALRM, SIG_DFL);
-
-		if (c_data.port_status)
-		{
-			printf("PORT %d OPEN!\n", ntohs(tcp_hdr.dport));
-			return SUCCESS;
-		}
-
-		// wait for answer and check RST or SYN-ACK
-		/*for (int retry = 0; retry < RETRIES; retry++)
-		{
-			char recvbuf[TCP_IPv4_BUF];
-			rv = recv(sfd, recvbuf, TCP_IPv4_BUF, 0);
-			printf("Recv bytes: %d\n", rv);
-			if (rv < 0)
+			struct bpf_program filter;
+			char filter_expr[128];
+			if (snprintf(filter_expr, sizeof(filter_expr),
+						 "src %s and dst %s and src port %d and dst port %d",
+						 address,
+						 src_info.ip,
+						 ntohs(tcp_hdr.dport),
+						 ntohs(tcp_hdr.sport)) < 0)
+			// TODO Add loopback support
+			/*f (snprintf(filter_expr, sizeof(filter_expr),
+			"src port %d",
+			ntohs(tcp_hdr.dport)) < 0)*/
 			{
-				free_dst_addr_struct(dst);
-				free(checksum_buf);
-				perror("recv");
-				close(sfd);
-				return SOCKET_ERROR;
+				pcap_close(handle);
+				return PCAP_FILTER;
 			}
 
-			struct ip *ip_len = (struct ip *)recvbuf;*/
+			// printf("%s\n", filter_expr);
 
-		// TODO ADD MORE CHECKS
+			rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
+			if (rv != 0)
+			{
+				pcap_perror(handle, "Compile");
+				pcap_close(handle);
+				return PCAP_FILTER;
+			}
 
-		/* Jump past IP header and get the TCP header */
-		/*tcp_header_t *recv_tcp_hdr = (tcp_header_t *)(recvbuf + ip_len->ip_hl * 4);
-		if (recv_tcp_hdr->dport != tcp_hdr.sport)
-		{
-			continue;
-		}
-		if (recv_tcp_hdr->sport != tcp_hdr.dport)
-		{
-			continue;
-		}
-		if (tcp_hdr.seq + htonl(1) != recv_tcp_hdr->ack)
-		{
-			continue;
-		}
-		if (recv_tcp_hdr->flags == SYN_ACK)
-		{
-			printf("PORT IS OPEN\n");
-			break;
-		}
-		if (recv_tcp_hdr->flags == RST)
-		{
-			printf("PORT IS CLOSED\n");
-			break;
-		}
-	}*/
+			rv = pcap_setfilter(handle, &filter);
+			if (rv != 0)
+			{
+				pcap_close(handle);
+				return PCAP_FILTER;
+			}
 
+			struct callback_data c_data = {.port_status = 0};
+
+			/* Stop sniff if timeout */
+			signal(SIGALRM, break_capture);
+
+			/* Start capture timer */
+			alarm(ALARM_SEC);
+
+			rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)&c_data);
+			if (rv == PCAP_ERROR)
+			{
+				pcap_close(handle);
+				return PCAP_LOOP;
+			}
+
+			signal(SIGALRM, SIG_DFL);
+
+			if (c_data.port_status)
+			{
+				printf("PORT %d OPEN!\n", ntohs(tcp_hdr.dport));
+				// return SUCCESS;
+			}
+			else
+			{
+				printf("PORT %d NOT OPEN!\n", ntohs(tcp_hdr.dport));
+			}
+		}
 		// print or save results
 
 		// change port number and maybe src port
@@ -550,7 +520,7 @@ int port_scan(char *address)
 		pcap_close(handle);
 		pcap_freealldevs(alldevs);
 
-		return NO_RESPONSE;
+		return SUCCESS;
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
