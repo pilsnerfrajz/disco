@@ -1,5 +1,3 @@
-/* SPDX-License-Identifier: MIT */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -67,8 +65,9 @@ static void break_capture(int signum)
 void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 					 const u_char *bytes)
 {
-	if (pkt_hdr->caplen <
-		(sizeof(ethernet_header_t) + sizeof(struct ip) + sizeof(tcp_header_t)))
+	if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
+						   sizeof(struct ip) +
+						   sizeof(tcp_header_t)))
 	{
 		return;
 	}
@@ -311,31 +310,8 @@ int port_scan(char *address)
 		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
 		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
 
-		/*printf("TCP pseudo header len: %d\n", ntohs(tcp_pseudo_ipv4.tcp_len));
-		printf("Raw Packet (TCP Pseudo Header):\n");
-		for (size_t i = 0; i < sizeof(tcp_pseudo_ipv4_t); i++)
-		{
-			printf("%02x ", ((unsigned char *)&tcp_pseudo_ipv4)[i]);
-			if ((i + 1) % 16 == 0)
-			{
-				printf("\n");
-			}
-		}
-		printf("\n");*/
-
 		// TODO Change this
-		tcp_hdr.dport = htons(8000);
-
-		/*printf("Raw Packet (TCP Header Before Checksum):\n");
-		for (size_t i = 0; i < sizeof(tcp_header_t); i++)
-		{
-			printf("%02x ", ((unsigned char *)&tcp_hdr)[i]);
-			if ((i + 1) % 16 == 0)
-			{
-				printf("\n");
-			}
-		}
-		printf("\n");*/
+		tcp_hdr.dport = htons(4444);
 
 		/* Calculate checksum */
 		size_t checksum_len = sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t);
@@ -352,31 +328,7 @@ int port_scan(char *address)
 		memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
 		memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
 
-		/*printf("Raw Packet (Checksum buffer):\n");
-		for (size_t i = 0; i < checksum_len; i++)
-		{
-			printf("%02x ", ((unsigned char *)temp)[i]);
-			if ((i + 1) % 16 == 0)
-			{
-				printf("\n");
-			}
-		}
-		printf("\n");*/
-
 		tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
-		// printf("Checksum for TCP header: %d\n", ntohs(tcp_hdr.checksum));
-
-		// printf("TCP pseudo header len: %d\n", ntohs(tcp_pseudo_ipv4.tcp_len));
-		/*printf("Raw Packet (TCP Header):\n");
-		for (size_t i = 0; i < sizeof(tcp_header_t); i++)
-		{
-			printf("%02x ", ((unsigned char *)&tcp_hdr)[i]);
-			if ((i + 1) % 16 == 0)
-			{
-				printf("\n");
-			}
-		}
-		printf("\n");*/
 
 		struct ip ip_header;
 		memset(&ip_header, 0, sizeof(struct ip));
@@ -397,76 +349,18 @@ int port_scan(char *address)
 			tcp_header_t tcp_hdr;
 		};
 
-		/*printf("IP Checksum: %d\n", ntohs(ip_header.ip_sum));
-		printf("Raw Packet (IP Header):\n");
-		for (size_t i = 0; i < sizeof(struct ip); i++)
-		{
-			printf("%02x ", ((unsigned char *)&ip_header)[i]);
-			if ((i + 1) % 16 == 0)
-			{
-				printf("\n");
-			}
-		}
-		printf("\n");*/
-
 		struct ip_packet ip_pkt = {
 			.ip_hdr = ip_header,
 			.tcp_hdr = tcp_hdr,
 		};
-
-		/*printf("TCP Checksum: %d\n", ntohs(tcp_hdr.checksum));
-		printf("Raw Packet (IP Header + TCP Header):\n");
-		for (size_t i = 0; i < sizeof(struct ip_packet); i++)
-		{
-			printf("%02x ", ((unsigned char *)&ip_pkt)[i]);
-			if ((i + 1) % 16 == 0)
-			{
-				printf("\n");
-			}
-		}
-		printf("\n");*/
 
 		// send to first port
 		struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
 		dest_ip_and_port->sin_port = tcp_hdr.dport;
 		dest_ip_and_port->sin_family = AF_INET;
 
-		/*rv = connect(sfd, dst->ai_addr, dst->ai_addrlen);
-		if (rv != 0)
-		{
-			free_dst_addr_struct(dst);
-			perror("connect");
-			close(sfd);
-			return SOCKET_ERROR;
-		}*/
-
 		size_t packet_len = sizeof(struct ip) + sizeof(tcp_header_t);
-		/*u_int8_t *send_buf = malloc(packet_len);
-		if (send_buf == NULL)
-		{
-			free_dst_addr_struct(dst);
-			free(checksum_buf);
-			free(src_info.ip);
-			perror("sendto");
-			close(sfd);
-			return SOCKET_ERROR;
-		}
-		memset(send_buf, 0, packet_len);
-		memcpy(send_buf, &ip_pkt.ip_hdr, sizeof(struct ip));
-		memcpy(send_buf + sizeof(struct ip), &ip_pkt.tcp_hdr, sizeof(tcp_header_t));*/
-
 		ssize_t bytes_left = sizeof(tcp_header_t);
-		/*printf("Raw Packet (Send buf):\n");
-		for (size_t i = 0; i < packet_len; i++)
-		{
-			printf("%02x ", ((unsigned char *)&send_buf)[i + 32]);
-			if ((i + 1) % 16 == 0)
-			{
-				printf("\n");
-			}
-		}
-		printf("\n");*/
-
 		ssize_t total_sent = 0;
 		ssize_t sent;
 		while (total_sent < bytes_left)
@@ -503,7 +397,7 @@ int port_scan(char *address)
 		}
 
 		struct pcap_if *if_name = NULL;
-		char *if_ip = inet_ntoa(ip_header.ip_src);
+		char *if_ip = src_info.ip;
 
 		for (pcap_if_t *d = alldevs; d; d = d->next)
 		{
@@ -517,16 +411,17 @@ int port_scan(char *address)
 						if_name = d;
 						break;
 					}
-					else
-					{
-						return IFACE_ERROR;
-					}
 				}
 			}
 			if (if_name)
 			{
 				break;
 			}
+		}
+
+		if (!if_name)
+		{
+			return IFACE_ERROR;
 		}
 
 		handle = pcap_open_live(if_name->name, IP_PACKET_LEN, 0, CAP_TIMEOUT, errbuf);
@@ -542,18 +437,22 @@ int port_scan(char *address)
 
 		struct bpf_program filter;
 		char filter_expr[128];
-		char *dst_ip = src_info.ip;
-		char *src_ip = address;
 		if (snprintf(filter_expr, sizeof(filter_expr),
 					 "src %s and dst %s and src port %d and dst port %d",
 					 address,
 					 src_info.ip,
 					 ntohs(tcp_hdr.dport),
 					 ntohs(tcp_hdr.sport)) < 0)
+		// TODO Add loopback support
+		/*f (snprintf(filter_expr, sizeof(filter_expr),
+		"src port %d",
+		ntohs(tcp_hdr.dport)) < 0)*/
 		{
 			pcap_close(handle);
 			return PCAP_FILTER;
 		}
+
+		printf("%s\n", filter_expr);
 
 		rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
 		if (rv != 0)
