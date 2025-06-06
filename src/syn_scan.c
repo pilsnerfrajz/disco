@@ -86,7 +86,7 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	}
 	int ip_len = ip_hdr->ip_hl * 4;
 	tcp_header_t *tcp_hdr =
-		(struct tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
+		(tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
 	if (tcp_hdr->flags != SYN_ACK)
 	{
 		return;
@@ -236,6 +236,7 @@ int *parse_ports(const char *port_str, int *port_count)
 			continue;
 		}
 
+		/* Range of ports */
 		int lower, upper;
 		if (strchr(token, '-') != NULL)
 		{
@@ -258,6 +259,7 @@ int *parse_ports(const char *port_str, int *port_count)
 				ports[count++] = i;
 			}
 		}
+		/* Single port */
 		else
 		{
 			int *temp = realloc(ports, sizeof(int) * (count + 1));
@@ -373,7 +375,7 @@ int port_scan(char *address, int *port_arr, int port_count)
 
 	/* Fill in pseudo header depending on the address family of the target */
 	tcp_pseudo_ipv4_t tcp_pseudo_ipv4;
-	tcp_pseudo_ipv6_t tcp_pseudo_ipv6;
+	// tcp_pseudo_ipv6_t tcp_pseudo_ipv6;
 	if (dst->ai_family == AF_INET)
 	{
 		struct ip ip_header;
@@ -561,23 +563,16 @@ int port_scan(char *address, int *port_arr, int port_count)
 
 			signal(SIGALRM, SIG_DFL);
 
+			// TODO: Write results to file if specified
 			if (c_data.port_status)
 			{
 				printf("%d\tOPEN\n", ntohs(tcp_hdr.dport));
-				// return SUCCESS;
 			}
 			else
 			{
 				printf("%d\tCLOSED\n", ntohs(tcp_hdr.dport));
 			}
 		}
-		// print or save results
-
-		// change port number and maybe src port
-
-		// recalculate checksum
-
-		// send and repeat
 
 		// free
 		free(checksum_buf);
@@ -596,15 +591,6 @@ int port_scan(char *address, int *port_arr, int port_count)
 	{
 		// error
 	}
-
-	/* Scan well-known ports to start with */
-	// for (int port = 1; port <= 1024; port++)
-	//{
-	//	tcp_hdr.dport = htons(port);
-
-	/* Reset checksum */
-	// tcp_hdr.checksum = htons(0);
-	//}
 
 	// TODO CHECK FREEING OF ALLOCATED BUFFERS
 	free(src_info.ip);
