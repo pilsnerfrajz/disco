@@ -360,17 +360,11 @@ int port_scan(char *address, short plower, short pupper)
 
 			tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
 
-			/*struct ip_packet ip_pkt = {
-				.ip_hdr = ip_header,
-				.tcp_hdr = tcp_hdr,
-			};*/
-
 			// send to first port
 			struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
 			dest_ip_and_port->sin_port = tcp_hdr.dport;
 			dest_ip_and_port->sin_family = AF_INET;
 
-			// size_t packet_len = sizeof(struct ip) + sizeof(tcp_header_t);
 			ssize_t bytes_left = sizeof(tcp_header_t);
 			ssize_t total_sent = 0;
 			ssize_t sent;
@@ -400,7 +394,6 @@ int port_scan(char *address, short plower, short pupper)
 			}
 
 			/* Get capture interface */
-			// pcap_if_t *alldevs;
 			if (pcap_findalldevs(&alldevs, errbuf) == -1)
 			{
 				fprintf(stderr, "Error: %s\n", errbuf);
@@ -455,15 +448,10 @@ int port_scan(char *address, short plower, short pupper)
 						 ntohs(tcp_hdr.dport),
 						 ntohs(tcp_hdr.sport)) < 0)
 			// TODO Add loopback support
-			/*f (snprintf(filter_expr, sizeof(filter_expr),
-			"src port %d",
-			ntohs(tcp_hdr.dport)) < 0)*/
 			{
 				pcap_close(handle);
 				return PCAP_FILTER;
 			}
-
-			// printf("%s\n", filter_expr);
 
 			rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
 			if (rv != 0)
