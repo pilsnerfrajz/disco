@@ -28,6 +28,7 @@
 #define ALARM_SEC 2
 #define ETH_TYPE_IP 0x0800
 #define IP_PROTO_TCP 0x06
+#define REALLOC_SIZE 1024
 
 /*
  * Max IPv4 header size = 60 bytes
@@ -205,7 +206,78 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 	return 0;
 }
 
-int port_scan(char *address, short plower, short pupper)
+/**
+ * @brief Parses a string with a format similar to `"1,2,3-5,6"`, and returns it
+ * as an int array `[1,2,3,4,5,6]`. The returned array should be freed with
+ * `free()`.
+ *
+ * @param port_str The string to parse.
+ * @param port_count int to store the number of ports in.
+ * @return int* array.
+ */
+int *parse_ports(const char *port_str, int *port_count)
+{
+	char *copy = strdup(port_str);
+	if (copy == NULL)
+	{
+		return NULL;
+	}
+
+	char *copy_to_free = copy;
+	char *token;
+	int *ports = NULL;
+	int count = 0;
+
+	while ((token = strsep(&copy, ",")) != NULL)
+	{
+		/* Skip ,, */
+		if (*token == '\0')
+		{
+			continue;
+		}
+
+		int lower, upper;
+		if (strchr(token, '-') != NULL)
+		{
+			/* Continue if invalid numbers */
+			if (sscanf(token, "%d-%d", &lower, &upper) != 2)
+			{
+				continue;
+			}
+
+			for (int i = lower; i <= upper; i++)
+			{
+				int *temp = realloc(ports, sizeof(int) * (count + REALLOC_SIZE));
+				if (temp == NULL)
+				{
+					free(ports);
+					free(copy_to_free);
+					return NULL;
+				}
+				ports = temp;
+				ports[count++] = i;
+			}
+		}
+		else
+		{
+			int *temp = realloc(ports, sizeof(int) * (count + 1));
+			if (temp == NULL)
+			{
+				free(ports);
+				free(copy_to_free);
+				return NULL;
+			}
+			ports = temp;
+			ports[count++] = atoi(token);
+		}
+	}
+
+	free(copy_to_free);
+	*port_count = count;
+	return ports;
+}
+
+int port_scan(char *address, int *port_arr, int port_count)
 {
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
@@ -340,9 +412,13 @@ int port_scan(char *address, short plower, short pupper)
 		}
 
 		pcap_if_t *alldevs;
-		for (short p = plower; p <= pupper; p++)
+		for (int p_index = 0; p_index < port_count; p_index++)
 		{
-			// TODO Change this
+			if (port_arr[p_index] <= 0)
+			{
+				continue;
+			}
+
 			memset(&tcp_hdr, 0, sizeof(tcp_header_t));
 			tcp_hdr.sport = htons(src_info.port);
 			tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
@@ -351,7 +427,7 @@ int port_scan(char *address, short plower, short pupper)
 			tcp_hdr.offset_rsrvd.bits.reserved = 0;
 			tcp_hdr.flags |= SYN;
 			tcp_hdr.window = htons(1024); /* Change to random later? */
-			tcp_hdr.dport = htons(p);
+			tcp_hdr.dport = htons(port_arr[p_index]);
 
 			/* Copy pseudo header and TCP header into a buffer */
 			u_int8_t *temp = checksum_buf;
@@ -487,12 +563,12 @@ int port_scan(char *address, short plower, short pupper)
 
 			if (c_data.port_status)
 			{
-				printf("PORT %d OPEN!\n", ntohs(tcp_hdr.dport));
+				printf("%d\tOPEN\n", ntohs(tcp_hdr.dport));
 				// return SUCCESS;
 			}
 			else
 			{
-				printf("PORT %d NOT OPEN!\n", ntohs(tcp_hdr.dport));
+				printf("%d\tCLOSED\n", ntohs(tcp_hdr.dport));
 			}
 		}
 		// print or save results
@@ -512,11 +588,7 @@ int port_scan(char *address, short plower, short pupper)
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
-		/*memset(&tcp_pseudo_ipv6, 0, sizeof(tcp_pseudo_ipv6_t));
-		tcp_pseudo_ipv6.src_ip = s_addr_in6->sin6_addr;
-		tcp_pseudo_ipv6.dst_ip = ((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr;
-		tcp_pseudo_ipv6.next = protocol->p_proto;
-		tcp_pseudo_ipv6.length = htonl(sizeof(tcp_header_t));*/
+		// TODO
 
 		return NO_RESPONSE;
 	}
