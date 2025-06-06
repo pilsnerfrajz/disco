@@ -5,6 +5,12 @@
 
 void print_err(char *function, int err_val)
 {
+	/* Don't care */
+	if (err_val == -1)
+	{
+		fprintf(stderr, "%s\n", function);
+		return;
+	}
 	fprintf(stderr, "%s: %s\n", function, error_strings[err_val]);
 }
 
