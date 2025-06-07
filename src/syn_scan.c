@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <unistd.h>
+#include <limits.h>
 
 #include "../include/utils.h"
 #include "../include/error.h"
@@ -217,6 +218,7 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
  */
 int *parse_ports(const char *port_str, int *port_count)
 {
+	int seen_ports[65536] = {0};
 	char *copy = strdup(port_str);
 	if (copy == NULL)
 	{
@@ -245,9 +247,27 @@ int *parse_ports(const char *port_str, int *port_count)
 			{
 				continue;
 			}
+			/* Set lower port to 1 if negative */
+			if (!lower)
+			{
+				lower = 1;
+			}
+
+			/* Set upper port to highest valid, if outside bound */
+			if (upper > 65535)
+			{
+				upper = 65535;
+			}
 
 			for (int i = lower; i <= upper; i++)
 			{
+				/* Skip already added port or add it */
+				if (seen_ports[i])
+				{
+					continue;
+				}
+				seen_ports[i] = 1;
+
 				int *temp = realloc(ports, sizeof(int) * (count + REALLOC_SIZE));
 				if (temp == NULL)
 				{
@@ -262,6 +282,31 @@ int *parse_ports(const char *port_str, int *port_count)
 		/* Single port */
 		else
 		{
+			/* Skip if not valid number */
+			char *endptr;
+			if (!strtol(token, &endptr, 10) || *endptr != '\0')
+			{
+				continue;
+			}
+
+			int converted = atoi(token);
+			if (converted <= 0)
+			{
+				converted = 1;
+			}
+
+			if (converted > 65535)
+			{
+				converted = 65535;
+			}
+
+			/* Skip already added port or add it */
+			if (seen_ports[converted])
+			{
+				continue;
+			}
+			seen_ports[converted] = 1;
+
 			int *temp = realloc(ports, sizeof(int) * (count + 1));
 			if (temp == NULL)
 			{
@@ -270,7 +315,7 @@ int *parse_ports(const char *port_str, int *port_count)
 				return NULL;
 			}
 			ports = temp;
-			ports[count++] = atoi(token);
+			ports[count++] = converted;
 		}
 	}
 
@@ -279,7 +324,7 @@ int *parse_ports(const char *port_str, int *port_count)
 	return ports;
 }
 
-int port_scan(char *address, int *port_arr, int port_count)
+int port_scan(char *address, int *port_arr, int port_count, int print_state)
 {
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
@@ -414,6 +459,11 @@ int port_scan(char *address, int *port_arr, int port_count)
 		}
 
 		pcap_if_t *alldevs;
+
+		// TODO Remove print
+		if (print_state)
+			printf("PORT\tSTATE\n");
+
 		for (int p_index = 0; p_index < port_count; p_index++)
 		{
 			if (port_arr[p_index] <= 0)
@@ -564,13 +614,16 @@ int port_scan(char *address, int *port_arr, int port_count)
 			signal(SIGALRM, SIG_DFL);
 
 			// TODO: Write results to file if specified
-			if (c_data.port_status)
+			if (print_state)
 			{
-				printf("%d\tOPEN\n", ntohs(tcp_hdr.dport));
-			}
-			else
-			{
-				printf("%d\tCLOSED\n", ntohs(tcp_hdr.dport));
+				if (c_data.port_status)
+				{
+					printf("%d\tOPEN\n", ntohs(tcp_hdr.dport));
+				}
+				else
+				{
+					printf("%d\tCLOSED\n", ntohs(tcp_hdr.dport));
+				}
 			}
 		}
 
