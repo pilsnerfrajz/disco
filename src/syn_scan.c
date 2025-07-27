@@ -52,6 +52,7 @@ struct src_info
 struct callback_data
 {
 	short port_status;
+	short loopback_flag;
 };
 
 static pcap_t *handle;
@@ -67,6 +68,30 @@ static void break_capture(int signum)
 void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 					 const u_char *bytes)
 {
+	struct callback_data *c_data = (struct callback_data *)user;
+
+	/* If loopback */
+	if (c_data->loopback_flag)
+	{
+		int skip_null = 4;
+		struct ip *ip_hdr = (struct ip *)(bytes + skip_null);
+		if (ip_hdr->ip_p != IP_PROTO_TCP)
+		{
+			return;
+		}
+		int ip_len = ip_hdr->ip_hl * 4;
+		tcp_header_t *tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
+		if (tcp_hdr->flags != SYN_ACK)
+		{
+			return;
+		}
+
+		c_data->port_status = 1;
+		pcap_breakloop(handle);
+	}
+
+	/* Else */
+
 	if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
 						   sizeof(struct ip) +
 						   sizeof(tcp_header_t)))
@@ -74,7 +99,6 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		return;
 	}
 
-	struct callback_data *c_data = (struct callback_data *)user;
 	ethernet_header_t *eth = (ethernet_header_t *)bytes;
 	if (ntohs(eth->ptype) != ETH_TYPE_IP)
 	{
@@ -324,7 +348,7 @@ int *parse_ports(const char *port_str, int *port_count)
 	return ports;
 }
 
-int port_scan(char *address, int *port_arr, int port_count, int print_state)
+int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
 {
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
@@ -489,11 +513,11 @@ int port_scan(char *address, int *port_arr, int port_count, int print_state)
 			tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
 
 			// send to first port
-			struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
+			/*struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
 			dest_ip_and_port->sin_port = tcp_hdr.dport;
-			dest_ip_and_port->sin_family = AF_INET;
+			dest_ip_and_port->sin_family = AF_INET;*/
 
-			ssize_t bytes_left = sizeof(tcp_header_t);
+			/*ssize_t bytes_left = sizeof(tcp_header_t);
 			ssize_t total_sent = 0;
 			ssize_t sent;
 			while (total_sent < bytes_left)
@@ -510,9 +534,8 @@ int port_scan(char *address, int *port_arr, int port_count, int print_state)
 					return SOCKET_ERROR;
 				}
 				total_sent += sent;
-			}
+			}*/
 
-			// TODO USE LIBPCAP ON MAC. THE OS SEEMS TO INTERCEPT ALL MESSAGES COMING IN
 			/* Initialize library */
 			char errbuf[PCAP_ERRBUF_SIZE];
 			int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
@@ -575,7 +598,6 @@ int port_scan(char *address, int *port_arr, int port_count, int print_state)
 						 src_info.ip,
 						 ntohs(tcp_hdr.dport),
 						 ntohs(tcp_hdr.sport)) < 0)
-			// TODO Add loopback support
 			{
 				pcap_close(handle);
 				return PCAP_FILTER;
@@ -596,13 +618,36 @@ int port_scan(char *address, int *port_arr, int port_count, int print_state)
 				return PCAP_FILTER;
 			}
 
-			struct callback_data c_data = {.port_status = 0};
+			struct callback_data c_data = {.port_status = 0, .loopback_flag = 0};
+			if (strncmp("127.0.0.1", address, 10) == 0)
+			{
+				c_data.loopback_flag = 1;
+			}
 
 			/* Stop sniff if timeout */
 			signal(SIGALRM, break_capture);
 
 			/* Start capture timer */
 			alarm(ALARM_SEC);
+
+			ssize_t bytes_left = sizeof(tcp_header_t);
+			ssize_t total_sent = 0;
+			ssize_t sent;
+			while (total_sent < bytes_left)
+			{
+				sent = sendto(sfd, &tcp_hdr + total_sent, bytes_left - total_sent, 0,
+							  dst->ai_addr,
+							  dst->ai_addrlen);
+				if (sent == -1)
+				{
+					free_dst_addr_struct(dst);
+					free(checksum_buf);
+					perror("sendto");
+					close(sfd);
+					return SOCKET_ERROR;
+				}
+				total_sent += sent;
+			}
 
 			rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)&c_data);
 			if (rv == PCAP_ERROR)
