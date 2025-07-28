@@ -501,6 +501,87 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 		pcap_if_t *alldevs;
 
+		/* Initialize library */
+		char errbuf[PCAP_ERRBUF_SIZE];
+		int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
+		if (rv != 0)
+		{
+			return PCAP_INIT;
+		}
+
+		/* Get capture interface */
+		if (pcap_findalldevs(&alldevs, errbuf) == -1)
+		{
+			fprintf(stderr, "Error: %s\n", errbuf);
+			return IFACE_ERROR;
+		}
+
+		struct pcap_if *if_name = NULL;
+		char *if_ip = src_info.ip;
+
+		for (pcap_if_t *d = alldevs; d; d = d->next)
+		{
+			for (pcap_addr_t *a = d->addresses; a; a = a->next)
+			{
+				if (a->addr && a->addr->sa_family == AF_INET)
+				{
+					struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
+					if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
+					{
+						if_name = d;
+						break;
+					}
+				}
+			}
+			if (if_name)
+			{
+				break;
+			}
+		}
+
+		if (!if_name)
+		{
+			return IFACE_ERROR;
+		}
+
+		handle = pcap_open_live(if_name->name, IP_PACKET_LEN, 0, CAP_TIMEOUT, errbuf);
+		if (handle == NULL)
+		{
+			/* Check if the error occured because of insufficient privileges */
+			if (strstr(errbuf, "Operation not permitted"))
+			{
+				return PERMISSION_ERROR;
+			}
+			return PCAP_OPEN;
+		}
+
+		struct bpf_program filter;
+		char filter_expr[128];
+		if (snprintf(filter_expr, sizeof(filter_expr),
+					 "src %s and dst %s and dst port %d",
+					 address,
+					 src_info.ip,
+					 ntohs(tcp_hdr.sport)) < 0)
+		{
+			pcap_close(handle);
+			return PCAP_FILTER;
+		}
+
+		rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
+		if (rv != 0)
+		{
+			pcap_perror(handle, "Compile");
+			pcap_close(handle);
+			return PCAP_FILTER;
+		}
+
+		rv = pcap_setfilter(handle, &filter);
+		if (rv != 0)
+		{
+			pcap_close(handle);
+			return PCAP_FILTER;
+		}
+
 		// TODO Remove print
 		if (print_state)
 			printf("PORT\tSTATE\n");
@@ -552,87 +633,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 				}
 				total_sent += sent;
 			}*/
-
-			/* Initialize library */
-			char errbuf[PCAP_ERRBUF_SIZE];
-			int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
-			if (rv != 0)
-			{
-				return PCAP_INIT;
-			}
-
-			/* Get capture interface */
-			if (pcap_findalldevs(&alldevs, errbuf) == -1)
-			{
-				fprintf(stderr, "Error: %s\n", errbuf);
-				return IFACE_ERROR;
-			}
-
-			struct pcap_if *if_name = NULL;
-			char *if_ip = src_info.ip;
-
-			for (pcap_if_t *d = alldevs; d; d = d->next)
-			{
-				for (pcap_addr_t *a = d->addresses; a; a = a->next)
-				{
-					if (a->addr && a->addr->sa_family == AF_INET)
-					{
-						struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
-						if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
-						{
-							if_name = d;
-							break;
-						}
-					}
-				}
-				if (if_name)
-				{
-					break;
-				}
-			}
-
-			if (!if_name)
-			{
-				return IFACE_ERROR;
-			}
-
-			handle = pcap_open_live(if_name->name, IP_PACKET_LEN, 0, CAP_TIMEOUT, errbuf);
-			if (handle == NULL)
-			{
-				/* Check if the error occured because of insufficient privileges */
-				if (strstr(errbuf, "Operation not permitted"))
-				{
-					return PERMISSION_ERROR;
-				}
-				return PCAP_OPEN;
-			}
-
-			struct bpf_program filter;
-			char filter_expr[128];
-			if (snprintf(filter_expr, sizeof(filter_expr),
-						 "src %s and dst %s and dst port %d",
-						 address,
-						 src_info.ip,
-						 ntohs(tcp_hdr.sport)) < 0)
-			{
-				pcap_close(handle);
-				return PCAP_FILTER;
-			}
-
-			rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
-			if (rv != 0)
-			{
-				pcap_perror(handle, "Compile");
-				pcap_close(handle);
-				return PCAP_FILTER;
-			}
-
-			rv = pcap_setfilter(handle, &filter);
-			if (rv != 0)
-			{
-				pcap_close(handle);
-				return PCAP_FILTER;
-			}
 
 			struct callback_data c_data = {.port_status = 0, .loopback_flag = 0};
 			if (strncmp("127.0.0.1", address, 10) == 0)
