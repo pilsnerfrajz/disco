@@ -19,6 +19,9 @@
 #include <signal.h> /* Alarm to break pcap_loop */
 #include <unistd.h> /* alarm() */
 
+#include <pthread.h>
+#include <stdint.h>
+
 #define SYN 0x02	 /* Sets the SYN flag in the TCP flag field */
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
 #define RST 0x04	 /* Sets the RST flag in the TCP flag field */
@@ -348,8 +351,22 @@ int *parse_ports(const char *port_str, int *port_count)
 	return ports;
 }
 
+void *capture_thread(void *arg)
+{
+	int rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)arg);
+	if (rv == PCAP_ERROR)
+	{
+		pcap_close(handle);
+		return (void *)(intptr_t)PCAP_LOOP;
+	}
+
+	return (void *)(intptr_t)SUCCESS;
+}
+
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
 {
+	printf("Scanning %d ports on %s...\n", port_count, address);
+
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
 	{
@@ -630,6 +647,10 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			/* Start capture timer */
 			alarm(ALARM_SEC);
 
+			/* Start capture in a separate thread */
+			pthread_t thread;
+			pthread_create(&thread, NULL, capture_thread, &c_data);
+
 			ssize_t bytes_left = sizeof(tcp_header_t);
 			ssize_t total_sent = 0;
 			ssize_t sent;
@@ -649,12 +670,20 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 				total_sent += sent;
 			}
 
-			rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)&c_data);
+			/* Remove thread */
+			void *thread_val;
+			pthread_join(thread, &thread_val);
+			if ((int)(intptr_t)thread_val != 0)
+			{
+				return PCAP_ERROR;
+			}
+
+			/*rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)&c_data);
 			if (rv == PCAP_ERROR)
 			{
 				pcap_close(handle);
 				return PCAP_LOOP;
-			}
+			}*/
 
 			signal(SIGALRM, SIG_DFL);
 
