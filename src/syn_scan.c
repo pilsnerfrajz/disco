@@ -610,10 +610,9 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			struct bpf_program filter;
 			char filter_expr[128];
 			if (snprintf(filter_expr, sizeof(filter_expr),
-						 "src %s and dst %s and src port %d and dst port %d",
+						 "src %s and dst %s and dst port %d",
 						 address,
 						 src_info.ip,
-						 ntohs(tcp_hdr.dport),
 						 ntohs(tcp_hdr.sport)) < 0)
 			{
 				pcap_close(handle);
