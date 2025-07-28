@@ -610,30 +610,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 			tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
 
-			// send to first port
-			/*struct sockaddr_in *dest_ip_and_port = ((struct sockaddr_in *)dst->ai_addr);
-			dest_ip_and_port->sin_port = tcp_hdr.dport;
-			dest_ip_and_port->sin_family = AF_INET;*/
-
-			/*ssize_t bytes_left = sizeof(tcp_header_t);
-			ssize_t total_sent = 0;
-			ssize_t sent;
-			while (total_sent < bytes_left)
-			{
-				sent = sendto(sfd, &tcp_hdr + total_sent, bytes_left - total_sent, 0,
-							  dst->ai_addr,
-							  dst->ai_addrlen);
-				if (sent == -1)
-				{
-					free_dst_addr_struct(dst);
-					free(checksum_buf);
-					perror("sendto");
-					close(sfd);
-					return SOCKET_ERROR;
-				}
-				total_sent += sent;
-			}*/
-
 			struct callback_data c_data = {.port_status = 0, .loopback_flag = 0};
 			if (strncmp("127.0.0.1", address, 10) == 0)
 			{
@@ -676,13 +652,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			{
 				return PCAP_ERROR;
 			}
-
-			/*rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)&c_data);
-			if (rv == PCAP_ERROR)
-			{
-				pcap_close(handle);
-				return PCAP_LOOP;
-			}*/
 
 			signal(SIGALRM, SIG_DFL);
 
