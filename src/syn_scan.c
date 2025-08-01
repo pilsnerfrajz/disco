@@ -28,7 +28,7 @@
 #define TIMEOUT_SECONDS 2
 #define RETRIES 3
 #define IP_PACKET_LEN 65535
-#define CAP_TIMEOUT 1000 /* Milliseconds */
+#define CAP_TIMEOUT 10 /* Milliseconds */
 #define ALARM_SEC 2
 #define ETH_TYPE_IP 0x0800
 #define IP_PROTO_TCP 0x06
@@ -54,8 +54,9 @@ struct src_info
 /* pcap struct to store info from callback function */
 struct callback_data
 {
-	short port_status;
+	// short port_status;
 	short loopback_flag;
+	short port_status[65536];
 };
 
 static pcap_t *handle;
@@ -84,13 +85,21 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		}
 		int ip_len = ip_hdr->ip_hl * 4;
 		tcp_header_t *tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
+
 		if (tcp_hdr->flags != SYN_ACK)
 		{
 			return;
 		}
 
-		c_data->port_status = 1;
-		pcap_breakloop(handle);
+		if (ntohs(tcp_hdr->sport) == 4444)
+			printf("4444\n");
+
+		if (ntohs(tcp_hdr->sport) == 65535)
+			printf("65535\n");
+
+		c_data->port_status[ntohs(tcp_hdr->sport)] = 1;
+		return;
+		// pcap_breakloop(handle);
 	}
 
 	/* Else */
@@ -120,8 +129,9 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		return;
 	}
 
-	c_data->port_status = 1;
-	pcap_breakloop(handle);
+	c_data->port_status[ntohs(tcp_hdr->sport)] = 1;
+	return;
+	// pcap_breakloop(handle);
 }
 
 /**
@@ -243,9 +253,9 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
  * @param port_count int to store the number of ports in.
  * @return int* array.
  */
-int *parse_ports(const char *port_str, int *port_count)
+unsigned short *parse_ports(const char *port_str, int *port_count)
 {
-	int seen_ports[65536] = {0};
+	unsigned short seen_ports[65536] = {0};
 	char *copy = strdup(port_str);
 	if (copy == NULL)
 	{
@@ -254,7 +264,7 @@ int *parse_ports(const char *port_str, int *port_count)
 
 	char *copy_to_free = copy;
 	char *token;
-	int *ports = NULL;
+	unsigned short *ports = NULL;
 	int count = 0;
 
 	while ((token = strsep(&copy, ",")) != NULL)
@@ -295,7 +305,7 @@ int *parse_ports(const char *port_str, int *port_count)
 				}
 				seen_ports[i] = 1;
 
-				int *temp = realloc(ports, sizeof(int) * (count + REALLOC_SIZE));
+				unsigned short *temp = realloc(ports, sizeof(unsigned short) * (count + REALLOC_SIZE));
 				if (temp == NULL)
 				{
 					free(ports);
@@ -334,7 +344,7 @@ int *parse_ports(const char *port_str, int *port_count)
 			}
 			seen_ports[converted] = 1;
 
-			int *temp = realloc(ports, sizeof(int) * (count + 1));
+			unsigned short *temp = realloc(ports, sizeof(unsigned short) * (count + 1));
 			if (temp == NULL)
 			{
 				free(ports);
@@ -555,6 +565,13 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return PCAP_OPEN;
 		}
 
+		/*handle = pcap_create(if_name->name, errbuf);
+		pcap_set_snaplen(handle, IP_PACKET_LEN);
+		pcap_set_promisc(handle, 0);
+		pcap_set_timeout(handle, CAP_TIMEOUT);
+		pcap_set_buffer_size(handle, 40 * 1024 * 1024);
+		pcap_activate(handle);*/
+
 		struct bpf_program filter;
 		char filter_expr[128];
 		if (snprintf(filter_expr, sizeof(filter_expr),
@@ -582,12 +599,19 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return PCAP_FILTER;
 		}
 
-		// TODO Remove print
-		if (print_state)
-			printf("PORT\tSTATE\n");
+		struct callback_data c_data = {0};
+		if (strncmp("127.0.0.1", address, 10) == 0)
+		{
+			c_data.loopback_flag = 1;
+		}
+
+		/* Start capture in a separate thread */
+		pthread_t thread;
+		pthread_create(&thread, NULL, capture_thread, &c_data);
 
 		for (int p_index = 0; p_index < port_count; p_index++)
 		{
+			// printf("Scanning port: %d\n", port_arr[p_index]);
 			if (port_arr[p_index] <= 0)
 			{
 				continue;
@@ -610,22 +634,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 			tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
 
-			struct callback_data c_data = {.port_status = 0, .loopback_flag = 0};
-			if (strncmp("127.0.0.1", address, 10) == 0)
-			{
-				c_data.loopback_flag = 1;
-			}
-
-			/* Stop sniff if timeout */
-			signal(SIGALRM, break_capture);
-
-			/* Start capture timer */
-			alarm(ALARM_SEC);
-
-			/* Start capture in a separate thread */
-			pthread_t thread;
-			pthread_create(&thread, NULL, capture_thread, &c_data);
-
 			ssize_t bytes_left = sizeof(tcp_header_t);
 			ssize_t total_sent = 0;
 			ssize_t sent;
@@ -644,27 +652,42 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 				}
 				total_sent += sent;
 			}
+			usleep(500);
+		}
 
-			/* Remove thread */
-			void *thread_val;
-			pthread_join(thread, &thread_val);
-			if ((int)(intptr_t)thread_val != 0)
-			{
-				return PCAP_ERROR;
-			}
+		/* Stop sniff if timeout */
+		signal(SIGALRM, break_capture);
 
-			signal(SIGALRM, SIG_DFL);
+		/* Start capture timer */
+		alarm(ALARM_SEC);
 
-			// TODO: Write results to file if specified
+		/* Remove thread */
+		void *thread_val;
+		pthread_join(thread, &thread_val);
+		if ((int)(intptr_t)thread_val != 0)
+		{
+			return PCAP_LOOP;
+		}
+
+		signal(SIGALRM, SIG_DFL);
+
+		// TODO Remove print
+		if (print_state)
+			printf("PORT\tSTATE\n");
+
+		for (int p_index = 0; p_index < port_count; p_index++)
+		{
+			// printf("Port: %d, %d\n", port_arr[p_index], c_data.port_status[port_arr[p_index]]);
+			//  TODO: Write results to file if specified
 			if (print_state)
 			{
-				if (c_data.port_status)
+				if (c_data.port_status[port_arr[p_index]])
 				{
-					printf("%d\tOPEN\n", ntohs(tcp_hdr.dport));
+					printf("%d\tOPEN\n", port_arr[p_index]);
 				}
 				else
 				{
-					printf("%d\tCLOSED\n", ntohs(tcp_hdr.dport));
+					// printf("%d\tCLOSED\n", port_arr[p_index]);
 				}
 			}
 		}
