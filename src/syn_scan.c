@@ -28,11 +28,14 @@
 #define TIMEOUT_SECONDS 2
 #define RETRIES 3
 #define IP_PACKET_LEN 65535
-#define CAP_TIMEOUT 10 /* Milliseconds */
+#define CAP_TIMEOUT 100 /* Milliseconds */
 #define ALARM_SEC 2
 #define ETH_TYPE_IP 0x0800
 #define IP_PROTO_TCP 0x06
 #define REALLOC_SIZE 1024
+#define UNKNOWN 0
+#define OPEN 1
+#define CLOSED 2
 
 /*
  * Max IPv4 header size = 60 bytes
@@ -56,7 +59,7 @@ struct callback_data
 {
 	// short port_status;
 	short loopback_flag;
-	short port_status[65536];
+	volatile short port_status[65536];
 };
 
 static pcap_t *handle;
@@ -73,7 +76,7 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 					 const u_char *bytes)
 {
 	struct callback_data *c_data = (struct callback_data *)user;
-
+	tcp_header_t *tcp_hdr;
 	/* If loopback */
 	if (c_data->loopback_flag)
 	{
@@ -84,54 +87,40 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 			return;
 		}
 		int ip_len = ip_hdr->ip_hl * 4;
-		tcp_header_t *tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
-
-		if (tcp_hdr->flags != SYN_ACK)
+		tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
+	}
+	else
+	{
+		if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
+							   sizeof(struct ip) +
+							   sizeof(tcp_header_t)))
 		{
 			return;
 		}
 
-		if (ntohs(tcp_hdr->sport) == 4444)
-			printf("4444\n");
-
-		if (ntohs(tcp_hdr->sport) == 65535)
-			printf("65535\n");
-
-		c_data->port_status[ntohs(tcp_hdr->sport)] = 1;
-		return;
-		// pcap_breakloop(handle);
+		ethernet_header_t *eth = (ethernet_header_t *)bytes;
+		if (ntohs(eth->ptype) != ETH_TYPE_IP)
+		{
+			return;
+		}
+		struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
+		if (ip_hdr->ip_p != IP_PROTO_TCP)
+		{
+			return;
+		}
+		int ip_len = ip_hdr->ip_hl * 4;
+		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
 	}
 
-	/* Else */
-
-	if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
-						   sizeof(struct ip) +
-						   sizeof(tcp_header_t)))
+	if (tcp_hdr->flags == SYN_ACK)
 	{
-		return;
+		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
 	}
-
-	ethernet_header_t *eth = (ethernet_header_t *)bytes;
-	if (ntohs(eth->ptype) != ETH_TYPE_IP)
+	else if (tcp_hdr->flags & RST)
 	{
-		return;
+		c_data->port_status[ntohs(tcp_hdr->sport)] = CLOSED;
 	}
-	struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
-	if (ip_hdr->ip_p != IP_PROTO_TCP)
-	{
-		return;
-	}
-	int ip_len = ip_hdr->ip_hl * 4;
-	tcp_header_t *tcp_hdr =
-		(tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
-	if (tcp_hdr->flags != SYN_ACK)
-	{
-		return;
-	}
-
-	c_data->port_status[ntohs(tcp_hdr->sport)] = 1;
 	return;
-	// pcap_breakloop(handle);
 }
 
 /**
@@ -369,7 +358,6 @@ void *capture_thread(void *arg)
 		pcap_close(handle);
 		return (void *)(intptr_t)PCAP_LOOP;
 	}
-
 	return (void *)(intptr_t)SUCCESS;
 }
 
@@ -458,16 +446,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		return SOCKET_ERROR;
 	}
 
-	/* Declare header and init all fields to 0 */
 	tcp_header_t tcp_hdr;
-	memset(&tcp_hdr, 0, sizeof(tcp_header_t));
-	tcp_hdr.sport = htons(src_info.port);
-	tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
-	tcp_hdr.ack = htonl(0);
-	tcp_hdr.offset_rsrvd.bits.offset = 5;
-	tcp_hdr.offset_rsrvd.bits.reserved = 0;
-	tcp_hdr.flags |= SYN;
-	tcp_hdr.window = htons(1024); /* Change to random later? */
 
 	/* Fill in pseudo header depending on the address family of the target */
 	tcp_pseudo_ipv4_t tcp_pseudo_ipv4;
@@ -554,7 +533,8 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return IFACE_ERROR;
 		}
 
-		handle = pcap_open_live(if_name->name, IP_PACKET_LEN, 0, CAP_TIMEOUT, errbuf);
+		// TODO Fix CREATE errors
+		handle = pcap_create(if_name->name, errbuf);
 		if (handle == NULL)
 		{
 			/* Check if the error occured because of insufficient privileges */
@@ -564,21 +544,24 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			}
 			return PCAP_OPEN;
 		}
-
-		/*handle = pcap_create(if_name->name, errbuf);
-		pcap_set_snaplen(handle, IP_PACKET_LEN);
+		if (pcap_set_snaplen(handle, IP_PACKET_LEN) != 0)
+		{
+			return PCAP_OPEN;
+		}
 		pcap_set_promisc(handle, 0);
+		// TODO set immediate mode for Linux?
+		pcap_set_immediate_mode(handle, 1);
 		pcap_set_timeout(handle, CAP_TIMEOUT);
-		pcap_set_buffer_size(handle, 40 * 1024 * 1024);
-		pcap_activate(handle);*/
+		pcap_set_buffer_size(handle, 50000000);
+
+		pcap_activate(handle);
 
 		struct bpf_program filter;
 		char filter_expr[128];
 		if (snprintf(filter_expr, sizeof(filter_expr),
-					 "src %s and dst %s and dst port %d",
-					 address,
-					 src_info.ip,
-					 ntohs(tcp_hdr.sport)) < 0)
+					 "src %s and dst %s and dst port %d and tcp",
+					 address, src_info.ip,
+					 src_info.port) < 0)
 		{
 			pcap_close(handle);
 			return PCAP_FILTER;
@@ -607,52 +590,72 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 		/* Start capture in a separate thread */
 		pthread_t thread;
+		// TODO check return value
 		pthread_create(&thread, NULL, capture_thread, &c_data);
 
-		for (int p_index = 0; p_index < port_count; p_index++)
+		int batch = 0;
+
+		for (int r = 0; r < RETRIES; r++)
 		{
-			// printf("Scanning port: %d\n", port_arr[p_index]);
-			if (port_arr[p_index] <= 0)
+			for (int p_index = 0; p_index < port_count; p_index++)
 			{
-				continue;
-			}
-
-			memset(&tcp_hdr, 0, sizeof(tcp_header_t));
-			tcp_hdr.sport = htons(src_info.port);
-			tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
-			tcp_hdr.ack = htonl(0);
-			tcp_hdr.offset_rsrvd.bits.offset = 5;
-			tcp_hdr.offset_rsrvd.bits.reserved = 0;
-			tcp_hdr.flags |= SYN;
-			tcp_hdr.window = htons(1024); /* Change to random later? */
-			tcp_hdr.dport = htons(port_arr[p_index]);
-
-			/* Copy pseudo header and TCP header into a buffer */
-			u_int8_t *temp = checksum_buf;
-			memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
-			memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
-
-			tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
-
-			ssize_t bytes_left = sizeof(tcp_header_t);
-			ssize_t total_sent = 0;
-			ssize_t sent;
-			while (total_sent < bytes_left)
-			{
-				sent = sendto(sfd, &tcp_hdr + total_sent, bytes_left - total_sent, 0,
-							  dst->ai_addr,
-							  dst->ai_addrlen);
-				if (sent == -1)
+				if (port_arr[p_index] <= 0)
 				{
-					free_dst_addr_struct(dst);
-					free(checksum_buf);
-					perror("sendto");
-					close(sfd);
-					return SOCKET_ERROR;
+					continue;
 				}
-				total_sent += sent;
+
+				/* Skip if port has already responded (open or closed) */
+				if (c_data.port_status[port_arr[p_index]] != UNKNOWN)
+				{
+					continue;
+				}
+
+				usleep(3000);
+				batch++;
+
+				memset(&tcp_hdr, 0, sizeof(tcp_header_t));
+				tcp_hdr.sport = htons(src_info.port);
+				tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
+				tcp_hdr.ack = htonl(0);
+				tcp_hdr.offset_rsrvd.bits.offset = 5;
+				tcp_hdr.offset_rsrvd.bits.reserved = 0;
+				tcp_hdr.flags |= SYN;
+				tcp_hdr.window = htons(1024); /* Change to random later? */
+				tcp_hdr.dport = htons(port_arr[p_index]);
+
+				/* Copy pseudo header and TCP header into a buffer */
+				u_int8_t *temp = checksum_buf;
+				memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
+				memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
+
+				tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
+
+				ssize_t bytes_left = sizeof(tcp_header_t);
+				ssize_t total_sent = 0;
+				ssize_t sent;
+				while (total_sent < bytes_left)
+				{
+					sent = sendto(sfd, (char *)&tcp_hdr + total_sent, bytes_left - total_sent, 0,
+								  dst->ai_addr,
+								  dst->ai_addrlen);
+					if (sent == -1)
+					{
+						free_dst_addr_struct(dst);
+						free(checksum_buf);
+						perror("sendto");
+						close(sfd);
+						return SOCKET_ERROR;
+					}
+					total_sent += sent;
+				}
+
+				if (batch == 50)
+				{
+					// TODO
+					// usleep(25000);
+					batch = 0;
+				}
 			}
-			usleep(500);
 		}
 
 		/* Stop sniff if timeout */
@@ -681,14 +684,15 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			//  TODO: Write results to file if specified
 			if (print_state)
 			{
-				if (c_data.port_status[port_arr[p_index]])
+				if (c_data.port_status[port_arr[p_index]] == OPEN)
 				{
-					printf("%d\tOPEN\n", port_arr[p_index]);
+					printf("%d\topen\n", port_arr[p_index]);
 				}
-				else
+				else if (c_data.port_status[port_arr[p_index]] == CLOSED)
 				{
-					// printf("%d\tCLOSED\n", port_arr[p_index]);
+					// printf("%d\tclosed\n", port_arr[p_index]);
 				}
+				// TODO Count unknown ports and print res
 			}
 		}
 
