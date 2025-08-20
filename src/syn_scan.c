@@ -372,6 +372,75 @@ static void cleanup(struct addrinfo *dst, int sfd, pcap_t *handle, u_int8_t *che
 	}
 }
 
+static int pcap_handle_setup(pcap_t **h, struct pcap_if *if_name,
+							 char errbuf[PCAP_ERRBUF_SIZE])
+{
+	*h = pcap_create(if_name->name, errbuf);
+	if (*h == NULL)
+	{
+		/* Check if the error occured because of insufficient privileges */
+		if (strstr(errbuf, "Operation not permitted"))
+		{
+			return PERMISSION_ERROR;
+		}
+		return PCAP_OPEN;
+	}
+
+	if (pcap_set_snaplen(*h, IP_PACKET_LEN) != 0)
+	{
+		pcap_close(*h);
+		*h = NULL;
+		return PCAP_OPEN;
+	}
+
+	if (pcap_set_promisc(*h, 0) != 0)
+	{
+		pcap_close(*h);
+		*h = NULL;
+		return PCAP_OPEN;
+	}
+
+	if (pcap_set_immediate_mode(*h, 1) != 0)
+	{
+		pcap_close(*h);
+		*h = NULL;
+		return PCAP_OPEN;
+	}
+
+	if (pcap_set_timeout(*h, CAP_TIMEOUT) != 0)
+	{
+		pcap_close(*h);
+		*h = NULL;
+		return PCAP_OPEN;
+	}
+
+	if (pcap_set_buffer_size(*h, 50000000) != 0)
+	{
+		pcap_close(*h);
+		*h = NULL;
+		return PCAP_OPEN;
+	}
+
+	int rv = pcap_activate(*h);
+	if (rv != 0)
+	{
+		if (rv == PCAP_ERROR_PERM_DENIED)
+		{
+			pcap_close(*h);
+			*h = NULL;
+			return PERMISSION_ERROR;
+		}
+		else if (rv < 0)
+		{
+			pcap_close(*h);
+			*h = NULL;
+			return PCAP_OPEN;
+		}
+		// TODO Log warnings if rv > 0?
+	}
+	return 0;
+}
+
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
 {
 	printf("Scanning %d ports on %s...\n", port_count, address);
@@ -541,70 +610,15 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 		if (!if_name)
 		{
+			cleanup(dst, sfd, NULL, checksum_buf);
 			return IFACE_ERROR;
 		}
 
-		handle = pcap_create(if_name->name, errbuf);
-		if (handle == NULL)
-		{
-			free_dst_addr_struct(dst);
-			free(checksum_buf);
-			close(sfd);
-
-			/* Check if the error occured because of insufficient privileges */
-			if (strstr(errbuf, "Operation not permitted"))
-			{
-				return PERMISSION_ERROR;
-			}
-			return PCAP_OPEN;
-		}
-
-		if (pcap_set_snaplen(handle, IP_PACKET_LEN) != 0)
-		{
-			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_OPEN;
-		}
-
-		if (pcap_set_promisc(handle, 0) != 0)
-		{
-			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_OPEN;
-		}
-
-		// TODO set immediate mode for Linux?
-
-		if (pcap_set_immediate_mode(handle, 1) != 0)
-		{
-			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_OPEN;
-		}
-
-		if (pcap_set_timeout(handle, CAP_TIMEOUT) != 0)
-		{
-			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_OPEN;
-		}
-
-		if (pcap_set_buffer_size(handle, 50000000) != 0)
-		{
-			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_OPEN;
-		}
-
-		rv = pcap_activate(handle);
+		rv = pcap_handle_setup(&handle, if_name, errbuf);
 		if (rv != 0)
 		{
-			if (rv == PCAP_ERROR_PERM_DENIED)
-			{
-				cleanup(dst, sfd, handle, checksum_buf);
-				return PERMISSION_ERROR;
-			}
-			else if (rv < 0)
-			{
-				cleanup(dst, sfd, handle, checksum_buf);
-				return PCAP_OPEN;
-			}
-			// TODO Log warnings if rv > 0?
+			cleanup(dst, sfd, handle, checksum_buf);
+			return rv;
 		}
 
 		struct bpf_program filter;
@@ -691,10 +705,11 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 								  dst->ai_addrlen);
 					if (sent == -1)
 					{
-						free_dst_addr_struct(dst);
-						free(checksum_buf);
-						perror("sendto");
-						close(sfd);
+						/* Break loop and wait for thread before cleanup */
+						pcap_breakloop(handle);
+						void *thread_val;
+						pthread_join(thread, &thread_val);
+						cleanup(dst, sfd, handle, checksum_buf);
 						return SOCKET_ERROR;
 					}
 					total_sent += sent;
@@ -713,6 +728,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		pthread_join(thread, &thread_val);
 		if ((int)(intptr_t)thread_val != 0)
 		{
+			cleanup(dst, sfd, handle, checksum_buf);
 			return PCAP_LOOP;
 		}
 
