@@ -644,11 +644,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		// ip_header.ip_sum = htons(0);
 		// ip_header.ip_sum = htons(calc_checksum(&ip_header, sizeof(struct ip)));
 
-		/*memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
-		tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
-		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
-		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
-		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));*/
 		tcp_pseudo_ipv4_t tcp_pseudo_ipv4 = {0};
 		tcp_header_t tcp_hdr = {0};
 		create_ipv4_pseudo_hdr(&tcp_pseudo_ipv4, bind_ptr, dst, protocol);
