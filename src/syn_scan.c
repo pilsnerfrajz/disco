@@ -746,7 +746,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			}
 		}
 
-		/* Stop sniff if timeout */
+		/* Link capture to alarm */
 		signal(SIGALRM, break_capture);
 
 		/* Start capture timer */
@@ -761,6 +761,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return PCAP_LOOP;
 		}
 
+		/* Restore alarm handler */
 		signal(SIGALRM, SIG_DFL);
 
 		// TODO Remove print
