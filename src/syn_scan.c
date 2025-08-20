@@ -521,11 +521,11 @@ static void create_ipv4_pseudo_hdr(tcp_pseudo_ipv4_t *tcp_pseudo_ipv4,
 	tcp_pseudo_ipv4->tcp_len = htons(sizeof(tcp_header_t));
 }
 
-static void create_tcp_hdr(tcp_header_t *tcp_hdr, // ← POINTER
+static void create_tcp_hdr(tcp_header_t *tcp_hdr,
 						   struct src_info src_info,
 						   unsigned short port,
 						   u_int8_t *checksum_buf,
-						   tcp_pseudo_ipv4_t *tcp_pseudo_ipv4) // ← POINTER
+						   tcp_pseudo_ipv4_t *tcp_pseudo_ipv4)
 {
 	memset(tcp_hdr, 0, sizeof(tcp_header_t));
 	tcp_hdr->sport = htons(src_info.port);
@@ -700,7 +700,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 					continue;
 				}
 
-				usleep(3000);
+				usleep(4000);
 
 				create_tcp_hdr(&tcp_hdr, src_info, port_arr[p_index],
 							   checksum_buf, &tcp_pseudo_ipv4);
