@@ -224,7 +224,7 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 	}
 	else
 	{
-		// error
+		// TODO error
 		close(sock);
 		return -1;
 	}
@@ -359,6 +359,17 @@ void *capture_thread(void *arg)
 		return (void *)(intptr_t)PCAP_LOOP;
 	}
 	return (void *)(intptr_t)SUCCESS;
+}
+
+static int cleanup_and_return_pcap_error(struct addrinfo *dst, int sfd, pcap_t *handle)
+{
+	free_dst_addr_struct(dst);
+	close(sfd);
+	if (handle)
+	{
+		pcap_close(handle);
+	}
+	return PCAP_OPEN;
 }
 
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
@@ -537,6 +548,9 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		handle = pcap_create(if_name->name, errbuf);
 		if (handle == NULL)
 		{
+			free_dst_addr_struct(dst);
+			close(sfd);
+
 			/* Check if the error occured because of insufficient privileges */
 			if (strstr(errbuf, "Operation not permitted"))
 			{
@@ -544,17 +558,47 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			}
 			return PCAP_OPEN;
 		}
+
 		if (pcap_set_snaplen(handle, IP_PACKET_LEN) != 0)
 		{
-			return PCAP_OPEN;
+			return cleanup_and_return_pcap_error(dst, sfd, handle);
 		}
-		pcap_set_promisc(handle, 0);
-		// TODO set immediate mode for Linux?
-		pcap_set_immediate_mode(handle, 1);
-		pcap_set_timeout(handle, CAP_TIMEOUT);
-		pcap_set_buffer_size(handle, 50000000);
 
-		pcap_activate(handle);
+		if (pcap_set_promisc(handle, 0) != 0)
+		{
+			return cleanup_and_return_pcap_error(dst, sfd, handle);
+		}
+
+		// TODO set immediate mode for Linux?
+
+		if (pcap_set_immediate_mode(handle, 1) != 0)
+		{
+			return cleanup_and_return_pcap_error(dst, sfd, handle);
+		}
+		if (pcap_set_timeout(handle, CAP_TIMEOUT) != 0)
+		{
+			return cleanup_and_return_pcap_error(dst, sfd, handle);
+		}
+
+		if (pcap_set_buffer_size(handle, 50000000) != 0)
+		{
+			return cleanup_and_return_pcap_error(dst, sfd, handle);
+		}
+
+		rv = pcap_activate(handle);
+		if (rv != 0)
+		{
+			if (rv == PCAP_ERROR_PERM_DENIED)
+			{
+				cleanup_and_return_pcap_error(dst, sfd, handle);
+				return PERMISSION_ERROR;
+			}
+			else if (rv < 0)
+			{
+				return cleanup_and_return_pcap_error(dst, sfd, handle);
+			}
+			// TODO Log warnings if rv > 0?
+		}
 
 		struct bpf_program filter;
 		char filter_expr[128];
