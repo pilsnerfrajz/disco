@@ -31,6 +31,6 @@ const char *const error_strings[] = {
 	"pcap_inject error",
 	"pcap_filter error",
 	"pcap_loop error",
-};
+	"Error creating thread"};
 
 static_assert(ENUMS == COUNT, "Enums and err strings are not equal.\n");
