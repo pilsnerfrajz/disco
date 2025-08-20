@@ -509,6 +509,18 @@ static int pcap_filter_setup(char *address, struct src_info src_info)
 	return 0;
 }
 
+static void create_ipv4_pseudo_hdr(struct tcp_pseudo_ipv4 tcp_pseudo_ipv4,
+								   struct sockaddr *bind_ptr,
+								   struct addrinfo *dst,
+								   struct protoent *protocol)
+{
+	memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
+	tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
+	tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
+	tcp_pseudo_ipv4.ptcl = protocol->p_proto;
+	tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
+}
+
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
 {
 	printf("Scanning %d ports on %s...\n", port_count, address);
@@ -594,8 +606,8 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 	if (dst->ai_family == AF_INET)
 	{
-		tcp_pseudo_ipv4_t tcp_pseudo_ipv4;
-		tcp_header_t tcp_hdr;
+		tcp_pseudo_ipv4_t tcp_pseudo_ipv4 = {0};
+		tcp_header_t tcp_hdr = {0};
 		// TODO Unused. Add if kernel does not include IP header in send call
 		// struct ip ip_header;
 		// memset(&ip_header, 0, sizeof(struct ip));
@@ -610,11 +622,12 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		// ip_header.ip_sum = htons(0);
 		// ip_header.ip_sum = htons(calc_checksum(&ip_header, sizeof(struct ip)));
 
-		memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
+		/*memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
 		tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
 		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
 		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
-		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
+		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));*/
+		create_ipv4_pseudo_hdr(tcp_pseudo_ipv4, bind_ptr, dst, protocol);
 
 		pcap_if_t *alldevs = NULL;
 		rv = pcap_handle_setup(&handle, alldevs, src_info);
