@@ -788,6 +788,13 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	else if (dst->ai_family == AF_INET6)
 	{
 		// TODO
+		// Socket is address family agnostic = OK
+		// Create IPv6 pseudo header
+		// Make create_tcp_hdr handle IPv6
+		// Check checksum calculaition
+		// Pray that kernel adds IPv6 IP header automatically
+		// Separat sending code for reuse in IPv6
+		// ???
 
 		return NO_RESPONSE;
 	}
