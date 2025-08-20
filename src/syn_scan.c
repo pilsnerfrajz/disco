@@ -598,8 +598,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	int rv = set_socket_options(sfd, TIMEOUT_SECONDS);
 	if (rv != 0)
 	{
-		free_dst_addr_struct(dst);
-		close(sfd);
+		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
 		return SOCKET_ERROR;
 	}
 
@@ -615,8 +614,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		bind_ipv4.sin_port = htons(src_info.port);
 		if (inet_pton(AF_INET, src_info.ip, &bind_ipv4.sin_addr) <= 0)
 		{
-			free_dst_addr_struct(dst);
-			close(sfd);
+			cleanup(dst, sfd, handle, NULL, NULL, &src_info);
 			return SOCKET_ERROR;
 		}
 
@@ -630,8 +628,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		bind_ipv6.sin6_port = htons(src_info.port);
 		if (inet_pton(AF_INET6, src_info.ip, &bind_ipv6.sin6_addr) <= 0)
 		{
-			free_dst_addr_struct(dst);
-			close(sfd);
+			cleanup(dst, sfd, handle, NULL, NULL, &src_info);
 			return SOCKET_ERROR;
 		}
 
@@ -642,8 +639,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	rv = bind(sfd, bind_ptr, bind_ptr_len);
 	if (rv == -1)
 	{
-		free_dst_addr_struct(dst);
-		close(sfd);
+		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
 		return SOCKET_ERROR;
 	}
 
