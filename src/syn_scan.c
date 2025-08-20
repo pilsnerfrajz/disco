@@ -709,22 +709,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 				create_tcp_hdr(&tcp_hdr, src_info, port_arr[p_index],
 							   checksum_buf, &tcp_pseudo_ipv4);
-				// memset(&tcp_hdr, 0, sizeof(tcp_header_t));
-				// tcp_hdr.sport = htons(src_info.port);
-				// tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
-				// tcp_hdr.ack = htonl(0);
-				// tcp_hdr.offset_rsrvd.bits.offset = 5;
-				// tcp_hdr.offset_rsrvd.bits.reserved = 0;
-				// tcp_hdr.flags |= SYN;
-				// tcp_hdr.window = htons(1024); /* Change to random later? */
-				// tcp_hdr.dport = htons(port_arr[p_index]);
-
-				// /* Copy pseudo header and TCP header into a buffer */
-				// u_int8_t *temp = checksum_buf;
-				// memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
-				// memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
-
-				// tcp_hdr.checksum = calc_checksum(checksum_buf, CHECKSUM_LEN);
 
 				ssize_t bytes_left = sizeof(tcp_header_t);
 				ssize_t total_sent = 0;
