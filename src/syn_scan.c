@@ -362,7 +362,9 @@ void *capture_thread(void *arg)
 	return (void *)(intptr_t)SUCCESS;
 }
 
-static void cleanup(struct addrinfo *dst, int sfd, pcap_t *handle, u_int8_t *checksum_buf)
+static void cleanup(struct addrinfo *dst, int sfd, pcap_t *handle,
+					pcap_if_t *alldevs, u_int8_t *checksum_buf,
+					struct src_info *src_info)
 {
 	free_dst_addr_struct(dst);
 	free(checksum_buf);
@@ -370,6 +372,14 @@ static void cleanup(struct addrinfo *dst, int sfd, pcap_t *handle, u_int8_t *che
 	if (handle)
 	{
 		pcap_close(handle);
+	}
+	if (alldevs)
+	{
+		pcap_freealldevs(alldevs);
+	}
+	if (src_info && src_info->ip)
+	{
+		free(src_info->ip);
 	}
 }
 
@@ -556,12 +566,21 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	}
 
 	struct src_info src_info = {0};
-	get_src_info(dst, &src_info);
+	if (get_src_info(dst, &src_info) != 0)
+	{
+		free_dst_addr_struct(dst);
+		if (src_info.ip)
+		{
+			free(src_info.ip);
+		}
+		return SRC_ADDR;
+	}
 
 	struct protoent *protocol = getprotobyname("tcp");
 	if (protocol == NULL)
 	{
 		free_dst_addr_struct(dst);
+		free(src_info.ip);
 		return PROTO_NOT_FOUND;
 	}
 
@@ -652,14 +671,14 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		rv = pcap_handle_setup(&handle, alldevs, src_info);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, NULL);
+			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
 			return rv;
 		}
 
 		rv = pcap_filter_setup(address, src_info);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, NULL);
+			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
 			return rv;
 		}
 
@@ -672,7 +691,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		u_int8_t *checksum_buf = malloc(CHECKSUM_LEN);
 		if (checksum_buf == NULL)
 		{
-			cleanup(dst, sfd, handle, NULL);
+			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
 			return MEM_ALLOC_ERROR;
 		}
 
@@ -681,7 +700,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		rv = pthread_create(&thread, NULL, capture_thread, &c_data);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, checksum_buf);
+			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
 			return PTHREAD_CREATE;
 		}
 
@@ -719,7 +738,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 						pcap_breakloop(handle);
 						void *thread_val;
 						pthread_join(thread, &thread_val);
-						cleanup(dst, sfd, handle, checksum_buf);
+						cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
 						return SOCKET_ERROR;
 					}
 					total_sent += sent;
@@ -738,7 +757,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		pthread_join(thread, &thread_val);
 		if ((int)(intptr_t)thread_val != 0)
 		{
-			cleanup(dst, sfd, handle, checksum_buf);
+			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
 			return PCAP_LOOP;
 		}
 
@@ -766,11 +785,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			}
 		}
 
-		// free
-		free(checksum_buf);
-		pcap_close(handle);
-		pcap_freealldevs(alldevs);
-
+		cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
 		return SUCCESS;
 	}
 	else if (dst->ai_family == AF_INET6)
@@ -781,13 +796,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	}
 	else
 	{
-		// error
+		return UNKNOWN_FAMILY;
 	}
-
-	// TODO CHECK FREEING OF ALLOCATED BUFFERS
-	free(src_info.ip);
-	free_dst_addr_struct(dst);
-	close(sfd);
-
-	return SUCCESS;
 }
