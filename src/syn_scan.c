@@ -234,6 +234,42 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 	return 0;
 }
 
+static int get_bind_addr(struct sockaddr **bind_ptr,
+						 socklen_t *bind_ptr_len,
+						 struct addrinfo *dst,
+						 struct src_info *src_info,
+						 struct sockaddr_in *bind_ipv4,
+						 struct sockaddr_in6 *bind_ipv6)
+{
+	if (dst->ai_family == AF_INET)
+	{
+		memset(bind_ipv4, 0, sizeof(struct sockaddr_in));
+		bind_ipv4->sin_family = AF_INET;
+		bind_ipv4->sin_port = htons(src_info->port);
+		if (inet_pton(AF_INET, src_info->ip, &bind_ipv4->sin_addr) <= 0)
+		{
+			return SOCKET_ERROR;
+		}
+
+		*bind_ptr = (struct sockaddr *)bind_ipv4;
+		*bind_ptr_len = sizeof(struct sockaddr_in);
+	}
+	else if (dst->ai_family == AF_INET6)
+	{
+		memset(bind_ipv6, 0, sizeof(struct sockaddr_in6));
+		bind_ipv6->sin6_family = AF_INET6;
+		bind_ipv6->sin6_port = htons(src_info->port);
+		if (inet_pton(AF_INET6, src_info->ip, &bind_ipv6->sin6_addr) <= 0)
+		{
+			return SOCKET_ERROR;
+		}
+
+		*bind_ptr = (struct sockaddr *)bind_ipv6;
+		*bind_ptr_len = sizeof(struct sockaddr_in6);
+	}
+	return 0;
+}
+
 /**
  * @brief Parses a string with a format similar to `"1,2,3-5,6"`, and returns it
  * as an unsigned short array `[1,2,3,4,5,6]`. The returned array should be freed with
@@ -602,38 +638,16 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		return SOCKET_ERROR;
 	}
 
-	/* Fix struct to use in bind */
+	/* Create struct to use in `bind` */
 	struct sockaddr *bind_ptr;
 	socklen_t bind_ptr_len = 0;
 	struct sockaddr_in bind_ipv4;
 	struct sockaddr_in6 bind_ipv6;
-	if (dst->ai_family == AF_INET)
+	rv = get_bind_addr(&bind_ptr, &bind_ptr_len, dst, &src_info, &bind_ipv4, &bind_ipv6);
+	if (rv != 0)
 	{
-		memset(&bind_ipv4, 0, sizeof(struct sockaddr_in));
-		bind_ipv4.sin_family = AF_INET;
-		bind_ipv4.sin_port = htons(src_info.port);
-		if (inet_pton(AF_INET, src_info.ip, &bind_ipv4.sin_addr) <= 0)
-		{
-			cleanup(dst, sfd, handle, NULL, NULL, &src_info);
-			return SOCKET_ERROR;
-		}
-
-		bind_ptr = (struct sockaddr *)&bind_ipv4;
-		bind_ptr_len = sizeof(struct sockaddr_in);
-	}
-	else if (dst->ai_family == AF_INET6)
-	{
-		memset(&bind_ipv6, 0, sizeof(struct sockaddr_in6));
-		bind_ipv6.sin6_family = AF_INET6;
-		bind_ipv6.sin6_port = htons(src_info.port);
-		if (inet_pton(AF_INET6, src_info.ip, &bind_ipv6.sin6_addr) <= 0)
-		{
-			cleanup(dst, sfd, handle, NULL, NULL, &src_info);
-			return SOCKET_ERROR;
-		}
-
-		bind_ptr = (struct sockaddr *)&bind_ipv6;
-		bind_ptr_len = sizeof(struct sockaddr_in6);
+		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
+		return rv;
 	}
 
 	rv = bind(sfd, bind_ptr, bind_ptr_len);
