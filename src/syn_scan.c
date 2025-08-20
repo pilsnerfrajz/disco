@@ -441,6 +441,32 @@ static int pcap_handle_setup(pcap_t **h, struct pcap_if *if_name,
 	return 0;
 }
 
+static int pcap_filter_setup(char *address, struct src_info src_info)
+{
+	struct bpf_program filter;
+	char filter_expr[128];
+	if (snprintf(filter_expr, sizeof(filter_expr),
+				 "src %s and dst %s and dst port %d and tcp",
+				 address, src_info.ip,
+				 src_info.port) < 0)
+	{
+		return PCAP_FILTER;
+	}
+
+	int rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
+	if (rv != 0)
+	{
+		return PCAP_FILTER;
+	}
+
+	rv = pcap_setfilter(handle, &filter);
+	if (rv != 0)
+	{
+		return PCAP_FILTER;
+	}
+	return 0;
+}
+
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
 {
 	printf("Scanning %d ports on %s...\n", port_count, address);
@@ -621,29 +647,11 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return rv;
 		}
 
-		struct bpf_program filter;
-		char filter_expr[128];
-		if (snprintf(filter_expr, sizeof(filter_expr),
-					 "src %s and dst %s and dst port %d and tcp",
-					 address, src_info.ip,
-					 src_info.port) < 0)
-		{
-			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_FILTER;
-		}
-
-		rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
+		rv = pcap_filter_setup(address, src_info);
 		if (rv != 0)
 		{
 			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_FILTER;
-		}
-
-		rv = pcap_setfilter(handle, &filter);
-		if (rv != 0)
-		{
-			cleanup(dst, sfd, handle, checksum_buf);
-			return PCAP_FILTER;
+			return rv;
 		}
 
 		struct callback_data c_data = {0};
