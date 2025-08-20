@@ -647,8 +647,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return PTHREAD_CREATE;
 		}
 
-		int batch = 0;
-
 		for (int r = 0; r < RETRIES; r++)
 		{
 			for (int p_index = 0; p_index < port_count; p_index++)
@@ -665,7 +663,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 				}
 
 				usleep(3000);
-				batch++;
 
 				memset(&tcp_hdr, 0, sizeof(tcp_header_t));
 				tcp_hdr.sport = htons(src_info.port);
@@ -701,13 +698,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 						return SOCKET_ERROR;
 					}
 					total_sent += sent;
-				}
-
-				if (batch == 50)
-				{
-					// TODO
-					// usleep(25000);
-					batch = 0;
 				}
 			}
 		}
