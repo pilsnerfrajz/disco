@@ -596,18 +596,19 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	{
 		tcp_pseudo_ipv4_t tcp_pseudo_ipv4;
 		tcp_header_t tcp_hdr;
-		struct ip ip_header;
-		memset(&ip_header, 0, sizeof(struct ip));
-		ip_header.ip_dst = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr;
-		ip_header.ip_src = ((struct sockaddr_in *)bind_ptr)->sin_addr;
-		ip_header.ip_v = 4;	 /* Version 4 */
-		ip_header.ip_hl = 5; /* Header length, no options */
-		ip_header.ip_len = htons(sizeof(struct ip) + sizeof(tcp_header_t));
-		ip_header.ip_id = htons(arc4random() & 0xffff); /* 16 bits */
-		ip_header.ip_ttl = 64;							/* Mac and Linux default */
-		ip_header.ip_p = (u_char)protocol->p_proto;		/* TCP */
-		ip_header.ip_sum = htons(0);
-		ip_header.ip_sum = htons(calc_checksum(&ip_header, sizeof(struct ip)));
+		// TODO Unused. Add if kernel does not include IP header in send call
+		// struct ip ip_header;
+		// memset(&ip_header, 0, sizeof(struct ip));
+		// ip_header.ip_dst = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr;
+		// ip_header.ip_src = ((struct sockaddr_in *)bind_ptr)->sin_addr;
+		// ip_header.ip_v = 4;	 /* Version 4 */
+		// ip_header.ip_hl = 5; /* Header length, no options */
+		// ip_header.ip_len = htons(sizeof(struct ip) + sizeof(tcp_header_t));
+		// ip_header.ip_id = htons(arc4random() & 0xffff); /* 16 bits */
+		// ip_header.ip_ttl = 64;							/* Mac and Linux default */
+		// ip_header.ip_p = (u_char)protocol->p_proto;		/* TCP */
+		// ip_header.ip_sum = htons(0);
+		// ip_header.ip_sum = htons(calc_checksum(&ip_header, sizeof(struct ip)));
 
 		memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
 		tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
