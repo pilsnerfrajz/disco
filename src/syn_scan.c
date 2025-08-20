@@ -236,12 +236,12 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 
 /**
  * @brief Parses a string with a format similar to `"1,2,3-5,6"`, and returns it
- * as an int array `[1,2,3,4,5,6]`. The returned array should be freed with
+ * as an unsigned short array `[1,2,3,4,5,6]`. The returned array should be freed with
  * `free()`.
  *
  * @param port_str The string to parse.
  * @param port_count int to store the number of ports in.
- * @return int* array.
+ * @return unsigned short* array.
  */
 unsigned short *parse_ports(const char *port_str, int *port_count)
 {
@@ -456,7 +456,7 @@ static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src
 		return PCAP_OPEN;
 	}
 
-	if (pcap_set_buffer_size(*h, 50000000) != 0)
+	if (pcap_set_buffer_size(*h, 5000000) != 0)
 	{
 		pcap_close(*h);
 		*h = NULL;
