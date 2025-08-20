@@ -372,9 +372,50 @@ static void cleanup(struct addrinfo *dst, int sfd, pcap_t *handle, u_int8_t *che
 	}
 }
 
-static int pcap_handle_setup(pcap_t **h, struct pcap_if *if_name,
-							 char errbuf[PCAP_ERRBUF_SIZE])
+static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src_info)
 {
+	/* Initialize library */
+	char errbuf[PCAP_ERRBUF_SIZE];
+	int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
+	if (rv != 0)
+	{
+		return PCAP_INIT;
+	}
+
+	/* Get capture interface */
+	if (pcap_findalldevs(&alldevs, errbuf) == -1)
+	{
+		return IFACE_ERROR;
+	}
+
+	struct pcap_if *if_name = NULL;
+	char *if_ip = src_info.ip;
+
+	for (pcap_if_t *d = alldevs; d; d = d->next)
+	{
+		for (pcap_addr_t *a = d->addresses; a; a = a->next)
+		{
+			if (a->addr && a->addr->sa_family == AF_INET)
+			{
+				struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
+				if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
+				{
+					if_name = d;
+					break;
+				}
+			}
+		}
+		if (if_name)
+		{
+			break;
+		}
+	}
+
+	if (!if_name)
+	{
+		return IFACE_ERROR;
+	}
+
 	*h = pcap_create(if_name->name, errbuf);
 	if (*h == NULL)
 	{
@@ -421,7 +462,7 @@ static int pcap_handle_setup(pcap_t **h, struct pcap_if *if_name,
 		return PCAP_OPEN;
 	}
 
-	int rv = pcap_activate(*h);
+	rv = pcap_activate(*h);
 	if (rv != 0)
 	{
 		if (rv == PCAP_ERROR_PERM_DENIED)
@@ -594,53 +635,8 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return MEM_ALLOC_ERROR;
 		}
 
-		pcap_if_t *alldevs;
-
-		/* Initialize library */
-		char errbuf[PCAP_ERRBUF_SIZE];
-		int rv = pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf);
-		if (rv != 0)
-		{
-			return PCAP_INIT;
-		}
-
-		/* Get capture interface */
-		if (pcap_findalldevs(&alldevs, errbuf) == -1)
-		{
-			fprintf(stderr, "Error: %s\n", errbuf);
-			return IFACE_ERROR;
-		}
-
-		struct pcap_if *if_name = NULL;
-		char *if_ip = src_info.ip;
-
-		for (pcap_if_t *d = alldevs; d; d = d->next)
-		{
-			for (pcap_addr_t *a = d->addresses; a; a = a->next)
-			{
-				if (a->addr && a->addr->sa_family == AF_INET)
-				{
-					struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
-					if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
-					{
-						if_name = d;
-						break;
-					}
-				}
-			}
-			if (if_name)
-			{
-				break;
-			}
-		}
-
-		if (!if_name)
-		{
-			cleanup(dst, sfd, NULL, checksum_buf);
-			return IFACE_ERROR;
-		}
-
-		rv = pcap_handle_setup(&handle, if_name, errbuf);
+		pcap_if_t *alldevs = NULL;
+		rv = pcap_handle_setup(&handle, alldevs, src_info);
 		if (rv != 0)
 		{
 			cleanup(dst, sfd, handle, checksum_buf);
