@@ -509,16 +509,40 @@ static int pcap_filter_setup(char *address, struct src_info src_info)
 	return 0;
 }
 
-static void create_ipv4_pseudo_hdr(struct tcp_pseudo_ipv4 tcp_pseudo_ipv4,
+static void create_ipv4_pseudo_hdr(tcp_pseudo_ipv4_t *tcp_pseudo_ipv4,
 								   struct sockaddr *bind_ptr,
 								   struct addrinfo *dst,
 								   struct protoent *protocol)
 {
-	memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
-	tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
-	tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
-	tcp_pseudo_ipv4.ptcl = protocol->p_proto;
-	tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
+	memset(tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
+	tcp_pseudo_ipv4->src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
+	tcp_pseudo_ipv4->dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
+	tcp_pseudo_ipv4->ptcl = protocol->p_proto;
+	tcp_pseudo_ipv4->tcp_len = htons(sizeof(tcp_header_t));
+}
+
+static void create_tcp_hdr(tcp_header_t *tcp_hdr, // ← POINTER
+						   struct src_info src_info,
+						   unsigned short port,
+						   u_int8_t *checksum_buf,
+						   tcp_pseudo_ipv4_t *tcp_pseudo_ipv4) // ← POINTER
+{
+	memset(tcp_hdr, 0, sizeof(tcp_header_t));
+	tcp_hdr->sport = htons(src_info.port);
+	tcp_hdr->seq = htonl(arc4random());
+	tcp_hdr->ack = htonl(0);
+	tcp_hdr->offset_rsrvd.bits.offset = 5;
+	tcp_hdr->offset_rsrvd.bits.reserved = 0;
+	tcp_hdr->flags |= SYN;
+	tcp_hdr->window = htons(1024);
+	tcp_hdr->dport = htons(port);
+
+	/* Copy pseudo header and TCP header into a buffer */
+	u_int8_t *temp = checksum_buf;
+	memcpy(temp, tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
+	memcpy(temp + sizeof(tcp_pseudo_ipv4_t), tcp_hdr, sizeof(tcp_header_t));
+
+	tcp_hdr->checksum = calc_checksum(checksum_buf, CHECKSUM_LEN);
 }
 
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
@@ -606,8 +630,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 	if (dst->ai_family == AF_INET)
 	{
-		tcp_pseudo_ipv4_t tcp_pseudo_ipv4 = {0};
-		tcp_header_t tcp_hdr = {0};
 		// TODO Unused. Add if kernel does not include IP header in send call
 		// struct ip ip_header;
 		// memset(&ip_header, 0, sizeof(struct ip));
@@ -627,7 +649,9 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
 		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
 		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));*/
-		create_ipv4_pseudo_hdr(tcp_pseudo_ipv4, bind_ptr, dst, protocol);
+		tcp_pseudo_ipv4_t tcp_pseudo_ipv4 = {0};
+		tcp_header_t tcp_hdr = {0};
+		create_ipv4_pseudo_hdr(&tcp_pseudo_ipv4, bind_ptr, dst, protocol);
 
 		pcap_if_t *alldevs = NULL;
 		rv = pcap_handle_setup(&handle, alldevs, src_info);
@@ -683,22 +707,24 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 				usleep(3000);
 
-				memset(&tcp_hdr, 0, sizeof(tcp_header_t));
-				tcp_hdr.sport = htons(src_info.port);
-				tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
-				tcp_hdr.ack = htonl(0);
-				tcp_hdr.offset_rsrvd.bits.offset = 5;
-				tcp_hdr.offset_rsrvd.bits.reserved = 0;
-				tcp_hdr.flags |= SYN;
-				tcp_hdr.window = htons(1024); /* Change to random later? */
-				tcp_hdr.dport = htons(port_arr[p_index]);
+				create_tcp_hdr(&tcp_hdr, src_info, port_arr[p_index],
+							   checksum_buf, &tcp_pseudo_ipv4);
+				// memset(&tcp_hdr, 0, sizeof(tcp_header_t));
+				// tcp_hdr.sport = htons(src_info.port);
+				// tcp_hdr.seq = htonl(arc4random()); /* rand is oboleted by this function */
+				// tcp_hdr.ack = htonl(0);
+				// tcp_hdr.offset_rsrvd.bits.offset = 5;
+				// tcp_hdr.offset_rsrvd.bits.reserved = 0;
+				// tcp_hdr.flags |= SYN;
+				// tcp_hdr.window = htons(1024); /* Change to random later? */
+				// tcp_hdr.dport = htons(port_arr[p_index]);
 
-				/* Copy pseudo header and TCP header into a buffer */
-				u_int8_t *temp = checksum_buf;
-				memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
-				memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
+				// /* Copy pseudo header and TCP header into a buffer */
+				// u_int8_t *temp = checksum_buf;
+				// memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
+				// memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
 
-				tcp_hdr.checksum = calc_checksum(checksum_buf, CHECKSUM_LEN);
+				// tcp_hdr.checksum = calc_checksum(checksum_buf, CHECKSUM_LEN);
 
 				ssize_t bytes_left = sizeof(tcp_header_t);
 				ssize_t total_sent = 0;
