@@ -36,6 +36,7 @@
 #define UNKNOWN 0
 #define OPEN 1
 #define CLOSED 2
+#define CHECKSUM_LEN (sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t))
 
 /*
  * Max IPv4 header size = 60 bytes
@@ -536,7 +537,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		{
 			return PERMISSION_ERROR;
 		}
-		printf("Socket\n");
 		return SOCKET_ERROR;
 	}
 
@@ -587,19 +587,15 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	rv = bind(sfd, bind_ptr, bind_ptr_len);
 	if (rv == -1)
 	{
-		perror("bind");
 		free_dst_addr_struct(dst);
 		close(sfd);
 		return SOCKET_ERROR;
 	}
 
-	tcp_header_t tcp_hdr;
-
-	/* Fill in pseudo header depending on the address family of the target */
-	tcp_pseudo_ipv4_t tcp_pseudo_ipv4;
-	// tcp_pseudo_ipv6_t tcp_pseudo_ipv6;
 	if (dst->ai_family == AF_INET)
 	{
+		tcp_pseudo_ipv4_t tcp_pseudo_ipv4;
+		tcp_header_t tcp_hdr;
 		struct ip ip_header;
 		memset(&ip_header, 0, sizeof(struct ip));
 		ip_header.ip_dst = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr;
@@ -613,40 +609,24 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		ip_header.ip_sum = htons(0);
 		ip_header.ip_sum = htons(calc_checksum(&ip_header, sizeof(struct ip)));
 
-		struct ip_packet
-		{
-			struct ip ip_hdr;
-			tcp_header_t tcp_hdr;
-		};
-
 		memset(&tcp_pseudo_ipv4, 0, sizeof(tcp_pseudo_ipv4_t));
 		tcp_pseudo_ipv4.src_ip = ((struct sockaddr_in *)bind_ptr)->sin_addr.s_addr;
 		tcp_pseudo_ipv4.dst_ip = ((struct sockaddr_in *)(dst->ai_addr))->sin_addr.s_addr;
 		tcp_pseudo_ipv4.ptcl = protocol->p_proto;
 		tcp_pseudo_ipv4.tcp_len = htons(sizeof(tcp_header_t));
 
-		/* Calculate checksum */
-		size_t checksum_len = sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t);
-		u_int8_t *checksum_buf = malloc(checksum_len);
-		if (checksum_buf == NULL)
-		{
-			free_dst_addr_struct(dst);
-			close(sfd);
-			return MEM_ALLOC_ERROR;
-		}
-
 		pcap_if_t *alldevs = NULL;
 		rv = pcap_handle_setup(&handle, alldevs, src_info);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, checksum_buf);
+			cleanup(dst, sfd, handle, NULL);
 			return rv;
 		}
 
 		rv = pcap_filter_setup(address, src_info);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, checksum_buf);
+			cleanup(dst, sfd, handle, NULL);
 			return rv;
 		}
 
@@ -654,6 +634,13 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		if (strncmp("127.0.0.1", address, 10) == 0)
 		{
 			c_data.loopback_flag = 1;
+		}
+
+		u_int8_t *checksum_buf = malloc(CHECKSUM_LEN);
+		if (checksum_buf == NULL)
+		{
+			cleanup(dst, sfd, handle, NULL);
+			return MEM_ALLOC_ERROR;
 		}
 
 		/* Start capture in a separate thread */
@@ -697,7 +684,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 				memcpy(temp, &tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
 				memcpy(temp + sizeof(tcp_pseudo_ipv4_t), &tcp_hdr, sizeof(tcp_header_t));
 
-				tcp_hdr.checksum = calc_checksum(checksum_buf, checksum_len);
+				tcp_hdr.checksum = calc_checksum(checksum_buf, CHECKSUM_LEN);
 
 				ssize_t bytes_left = sizeof(tcp_header_t);
 				ssize_t total_sent = 0;
