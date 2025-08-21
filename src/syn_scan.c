@@ -800,6 +800,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	}
 	else
 	{
+		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
 		return UNKNOWN_FAMILY;
 	}
 }
