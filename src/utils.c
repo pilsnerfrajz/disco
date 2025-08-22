@@ -37,14 +37,29 @@ struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 	}
 
 	struct addrinfo *temp = dst_info;
+	struct addrinfo *ipv4_result = NULL;
+	struct addrinfo *ipv6_result = NULL;
+
+	// Find both IPv4 and IPv6 addresses
 	while (temp != NULL)
 	{
-		if (temp->ai_family == AF_INET || temp->ai_family == AF_INET6)
+		if (temp->ai_family == AF_INET && ipv4_result == NULL)
 		{
-			break;
+			ipv4_result = temp;
+		}
+		else if (temp->ai_family == AF_INET6 && ipv6_result == NULL)
+		{
+			ipv6_result = temp;
 		}
 		temp = temp->ai_next;
 	}
+
+	/*
+	 * Use IPv4 is available. My system only seem to have IPv4 interfaces
+	 * available. getaddrinfo seems to resolve domain names to IPv6 which
+	 * causes a routing problem. :(
+	 */
+	temp = ipv4_result ? ipv4_result : ipv6_result;
 
 	if (temp == NULL)
 	{
