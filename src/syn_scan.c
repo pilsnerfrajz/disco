@@ -739,7 +739,7 @@ static int send_syn(int sfd,
 
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
 {
-	printf("Scanning %d ports on %s...\n", port_count, address);
+	printf("┌ Scanning %d ports on %s...\n", port_count, address);
 
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
@@ -955,7 +955,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 	// TODO Remove print
 	if (print_state)
-		printf("PORT\tSTATE\n");
+		printf("| PORT\tSTATE\n");
 
 	for (int p_index = 0; p_index < port_count; p_index++)
 	{
@@ -965,7 +965,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		{
 			if (c_data.port_status[port_arr[p_index]] == OPEN)
 			{
-				printf("%d\topen\n", port_arr[p_index]);
+				printf("│ %d\topen\n", port_arr[p_index]);
 			}
 			else if (c_data.port_status[port_arr[p_index]] == CLOSED)
 			{

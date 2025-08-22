@@ -65,45 +65,45 @@ void syn_scan_test(void)
 	}
 
 	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
-		printf("✅ Localhost IPv4 Port scan test: Passed\n");
+		printf("└ ✅ Localhost IPv4 Port scan test: Passed\n");
 	else
 	{
-		print_err("❌ Localhost IPv4 Port scan test failed", ret);
+		print_err("└ ❌ Localhost IPv4 Port scan test failed", ret);
 	}
 
 	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
-		printf("✅ Localhost IPv6 Port scan test: Passed\n");
+		printf("└ ✅ Localhost IPv6 Port scan test: Passed\n");
 	else
 	{
-		print_err("❌ Localhost IPv6 Port scan test failed", ret);
+		print_err("└ ❌ Localhost IPv6 Port scan test failed", ret);
 	}
 
 	if ((ret = port_scan("127.0.0.1", all_ports, all_port_count, 1)) == SUCCESS)
-		printf("✅ IPv4 Localhost full port scan test: Passed\n");
+		printf("└ ✅ IPv4 Localhost full port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv4 Localhost full port scan test failed", ret);
+		print_err("└ ❌ IPv4 Localhost full port scan test failed", ret);
 	}
 
 	if ((ret = port_scan("::1", all_ports, all_port_count, 1)) == SUCCESS)
-		printf("✅ IPv6 Localhost full port scan test: Passed\n");
+		printf("└ ✅ IPv6 Localhost full port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv6 Localhost full port scan test failed", ret);
+		print_err("└ ❌ IPv6 Localhost full port scan test failed", ret);
 	}
 
 	if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
-		printf("✅ IPv4 LAN device port scan test: Passed\n");
+		printf("└ ✅ IPv4 LAN device port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv4 LAN device port scan test failed", ret);
+		print_err("└ ❌ IPv4 LAN device port scan test failed", ret);
 	}
 
 	if ((ret = port_scan(lan_dev, all_ports, all_port_count, 1)) == SUCCESS)
-		printf("✅ IPv4 LAN device full port scan test: Passed\n");
+		printf("└ ✅ IPv4 LAN device full port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv4 LAN device full port scan test failed", ret);
+		print_err("└ ❌ IPv4 LAN device full port scan test failed", ret);
 	}
 
 	// TODO
@@ -115,10 +115,10 @@ void syn_scan_test(void)
 	}*/
 
 	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, 1)) == SUCCESS)
-		printf("✅ External Port scan test: Passed\n");
+		printf("└ ✅ External Port scan test: Passed\n");
 	else
 	{
-		print_err("❌ External Port scan test failed", ret);
+		print_err("└ ❌ External Port scan test failed", ret);
 	}
 
 	free(all_ports);
