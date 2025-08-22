@@ -15,6 +15,7 @@ void syn_scan_test(void)
 	unsigned short test_arr[TEST_ARR_LEN] = {80, 4444, 5000, 6463, 7000, 10391,
 											 17500, 17600, 17603, 44444, 59866,
 											 61716, 64120, 65535};
+	unsigned short scanme_ports[] = {22, 80, 9929, 31337};
 	int ret;
 	int all_port_count = 0;
 	int test_port_count = 0;
@@ -63,48 +64,62 @@ void syn_scan_test(void)
 		print_err("❌ Parse mixed ports failed", -1);
 	}
 
-	/*if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
-		printf("✅ Localhost Port scan test: Passed\n");
+	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+		printf("✅ Localhost IPv4 Port scan test: Passed\n");
 	else
 	{
-		print_err("❌ Localhost Port scan test failed", ret);
-	}*/
+		print_err("❌ Localhost IPv4 Port scan test failed", ret);
+	}
+
+	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+		printf("✅ Localhost IPv6 Port scan test: Passed\n");
+	else
+	{
+		print_err("❌ Localhost IPv6 Port scan test failed", ret);
+	}
 
 	if ((ret = port_scan("127.0.0.1", all_ports, all_port_count, 1)) == SUCCESS)
-		printf("✅ IPv4 Localhost all port scan test: Passed\n");
+		printf("✅ IPv4 Localhost full port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv4 Localhost all port scan test failed", ret);
+		print_err("❌ IPv4 Localhost full port scan test failed", ret);
 	}
 
 	if ((ret = port_scan("::1", all_ports, all_port_count, 1)) == SUCCESS)
-		printf("✅ IPv6 Localhost all port scan test: Passed\n");
+		printf("✅ IPv6 Localhost full port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv6 Localhost all port scan test failed", ret);
+		print_err("❌ IPv6 Localhost full port scan test failed", ret);
 	}
 
-	/*if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
-		printf("✅ LAN device port scan test: Passed\n");
+	if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+		printf("✅ IPv4 LAN device port scan test: Passed\n");
 	else
 	{
-		print_err("❌ LAN device port scan test failed", ret);
+		print_err("❌ IPv4 LAN device port scan test failed", ret);
 	}
 
 	if ((ret = port_scan(lan_dev, all_ports, all_port_count, 1)) == SUCCESS)
-		printf("✅ LAN device all port scan test: Passed\n");
+		printf("✅ IPv4 LAN device full port scan test: Passed\n");
 	else
 	{
-		print_err("❌ LAN device all port scan test failed", ret);
-	}*/
+		print_err("❌ IPv4 LAN device full port scan test failed", ret);
+	}
 
 	// TODO
-	/*if ((ret = port_scan("some-ip", test_arr, count, 0)) == SUCCESS)
-		printf("✅ IPv6 Port scan test: Passed\n");
+	/*if ((ret = port_scan("Lan-device-ip", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+		printf("✅ IPv6 Lan Port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv6 Port scan test failed", ret);
+		print_err("❌ IPv6 Lan Port scan test failed", ret);
 	}*/
+
+	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, 1)) == SUCCESS)
+		printf("✅ External Port scan test: Passed\n");
+	else
+	{
+		print_err("❌ External Port scan test failed", ret);
+	}
 
 	free(all_ports);
 	free(parse_test_ports);
