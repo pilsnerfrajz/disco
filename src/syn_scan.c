@@ -747,6 +747,21 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		return UNKNOWN_HOST;
 	}
 
+	/* Resolve address if domain*/
+	/*char resolved_address[INET6_ADDRSTRLEN];
+	if (dst->ai_addr->sa_family == AF_INET)
+	{
+		address = inet_ntoa(((struct sockaddr_in *)dst->ai_addr)->sin_addr);
+	}
+	else
+	{
+		inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dst->ai_addr)->sin6_addr,
+				  resolved_address, INET6_ADDRSTRLEN);
+		address = resolved_address;
+	}
+
+	printf("Scanning: %s\n", address);*/
+
 	struct src_info src_info = {0};
 	if (get_src_info(dst, &src_info) != 0)
 	{
