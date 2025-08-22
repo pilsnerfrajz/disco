@@ -567,6 +567,18 @@ static void create_ipv4_pseudo_hdr(tcp_pseudo_ipv4_t *tcp_pseudo_ipv4,
 	tcp_pseudo_ipv4->tcp_len = htons(sizeof(tcp_header_t));
 }
 
+static void create_ipv6_pseudo_hdr(tcp_pseudo_ipv6_t *tcp_pseudo_ipv6,
+								   struct sockaddr *bind_ptr,
+								   struct addrinfo *dst,
+								   struct protoent *protocol)
+{
+	memset(tcp_pseudo_ipv6, 0, sizeof(tcp_pseudo_ipv6_t));
+	tcp_pseudo_ipv6->src_ip = ((struct sockaddr_in6 *)bind_ptr)->sin6_addr;
+	tcp_pseudo_ipv6->dst_ip = ((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr;
+	tcp_pseudo_ipv6->next = protocol->p_proto;
+	tcp_pseudo_ipv6->length = htons(sizeof(tcp_header_t));
+}
+
 static void create_tcp_hdr(tcp_header_t *tcp_hdr,
 						   struct src_info src_info,
 						   unsigned short port,
@@ -657,10 +669,11 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		return SOCKET_ERROR;
 	}
 
+	tcp_header_t tcp_hdr = {0};
+
 	if (dst->ai_family == AF_INET)
 	{
 		tcp_pseudo_ipv4_t tcp_pseudo_ipv4 = {0};
-		tcp_header_t tcp_hdr = {0};
 		create_ipv4_pseudo_hdr(&tcp_pseudo_ipv4, bind_ptr, dst, protocol);
 
 		pcap_if_t *alldevs = NULL;
@@ -725,7 +738,8 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 				ssize_t sent;
 				while (total_sent < bytes_left)
 				{
-					sent = sendto(sfd, (char *)&tcp_hdr + total_sent, bytes_left - total_sent, 0,
+					sent = sendto(sfd, (char *)&tcp_hdr + total_sent,
+								  bytes_left - total_sent, 0,
 								  dst->ai_addr,
 								  dst->ai_addrlen);
 					if (sent == -1)
@@ -789,7 +803,11 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	{
 		// TODO
 		// Socket is address family agnostic = OK
+
 		// Create IPv6 pseudo header
+		tcp_pseudo_ipv6_t tcp_pseudo_ipv6 = {0};
+		create_ipv6_pseudo_hdr(&tcp_pseudo_ipv6, bind_ptr, dst, protocol);
+
 		// Make create_tcp_hdr handle IPv6
 		// Check checksum calculaition
 		// Pray that kernel adds IPv6 IP header automatically
