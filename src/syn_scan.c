@@ -703,7 +703,7 @@ static int send_syn(int sfd,
 				continue;
 			}
 
-			usleep(4000);
+			usleep(5000);
 
 			if (create_tcp_hdr(tcp_hdr, src_info, port_arr[p_index],
 							   checksum_buf, pseudo_header, address_family) != 0)
