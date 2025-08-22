@@ -593,7 +593,7 @@ static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src
 static int pcap_filter_setup(char *address, struct src_info src_info)
 {
 	struct bpf_program filter;
-	char filter_expr[128];
+	char filter_expr[256];
 	if (snprintf(filter_expr, sizeof(filter_expr),
 				 "src %s and dst %s and dst port %d and tcp",
 				 address, src_info.ip,
