@@ -36,7 +36,8 @@
 #define UNKNOWN 0
 #define OPEN 1
 #define CLOSED 2
-#define CHECKSUM_LEN (sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t))
+#define CHECKSUM_LEN_IPV4 (sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t))
+#define CHECKSUM_LEN_IPV6 (sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv6_t))
 
 /*
  * Max IPv4 header size = 60 bytes
@@ -579,11 +580,12 @@ static void create_ipv6_pseudo_hdr(tcp_pseudo_ipv6_t *tcp_pseudo_ipv6,
 	tcp_pseudo_ipv6->length = htons(sizeof(tcp_header_t));
 }
 
-static void create_tcp_hdr(tcp_header_t *tcp_hdr,
-						   struct src_info src_info,
-						   unsigned short port,
-						   u_int8_t *checksum_buf,
-						   tcp_pseudo_ipv4_t *tcp_pseudo_ipv4)
+static int create_tcp_hdr(tcp_header_t *tcp_hdr,
+						  struct src_info src_info,
+						  unsigned short port,
+						  u_int8_t *checksum_buf,
+						  void *pseudo_header,
+						  int address_family)
 {
 	memset(tcp_hdr, 0, sizeof(tcp_header_t));
 	tcp_hdr->sport = htons(src_info.port);
@@ -595,12 +597,23 @@ static void create_tcp_hdr(tcp_header_t *tcp_hdr,
 	tcp_hdr->window = htons(1024);
 	tcp_hdr->dport = htons(port);
 
-	/* Copy pseudo header and TCP header into a buffer */
+	/* Copy pseudo header and TCP header into buffer based on address family */
 	u_int8_t *temp = checksum_buf;
-	memcpy(temp, tcp_pseudo_ipv4, sizeof(tcp_pseudo_ipv4_t));
-	memcpy(temp + sizeof(tcp_pseudo_ipv4_t), tcp_hdr, sizeof(tcp_header_t));
-
-	tcp_hdr->checksum = calc_checksum(checksum_buf, CHECKSUM_LEN);
+	if (address_family == AF_INET)
+	{
+		memcpy(temp, pseudo_header, sizeof(tcp_pseudo_ipv4_t));
+		memcpy(temp + sizeof(tcp_pseudo_ipv4_t), tcp_hdr, sizeof(tcp_header_t));
+		tcp_hdr->checksum = calc_checksum(checksum_buf, CHECKSUM_LEN_IPV4);
+		return 0;
+	}
+	else if (address_family == AF_INET6)
+	{
+		memcpy(temp, pseudo_header, sizeof(tcp_pseudo_ipv6_t));
+		memcpy(temp + sizeof(tcp_pseudo_ipv6_t), tcp_hdr, sizeof(tcp_header_t));
+		tcp_hdr->checksum = calc_checksum(checksum_buf, CHECKSUM_LEN_IPV6);
+		return 0;
+	}
+	return -1;
 }
 
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
@@ -686,18 +699,19 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		return rv;
 	}
 
+	struct callback_data c_data = {0};
+
 	if (dst->ai_family == AF_INET)
 	{
 		tcp_pseudo_ipv4_t tcp_pseudo_ipv4 = {0};
 		create_ipv4_pseudo_hdr(&tcp_pseudo_ipv4, bind_ptr, dst, protocol);
 
-		struct callback_data c_data = {0};
 		if (strncmp("127.0.0.1", address, 10) == 0)
 		{
 			c_data.loopback_flag = 1;
 		}
 
-		u_int8_t *checksum_buf = malloc(CHECKSUM_LEN);
+		u_int8_t *checksum_buf = malloc(CHECKSUM_LEN_IPV4);
 		if (checksum_buf == NULL)
 		{
 			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
@@ -730,8 +744,12 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 				usleep(4000);
 
-				create_tcp_hdr(&tcp_hdr, src_info, port_arr[p_index],
-							   checksum_buf, &tcp_pseudo_ipv4);
+				if (create_tcp_hdr(&tcp_hdr, src_info, port_arr[p_index],
+								   checksum_buf, &tcp_pseudo_ipv4, AF_INET) != 0)
+				{
+					// TODO Error code if error occurs?
+					continue;
+				}
 
 				ssize_t bytes_left = sizeof(tcp_header_t);
 				ssize_t total_sent = 0;
@@ -808,7 +826,19 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		tcp_pseudo_ipv6_t tcp_pseudo_ipv6 = {0};
 		create_ipv6_pseudo_hdr(&tcp_pseudo_ipv6, bind_ptr, dst, protocol);
 
-		// Make create_tcp_hdr handle IPv6
+		if (strncmp("::1", address, 4) == 0)
+		{
+			c_data.loopback_flag = 1;
+		}
+
+		u_int8_t *checksum_buf = malloc(CHECKSUM_LEN_IPV6);
+		if (checksum_buf == NULL)
+		{
+			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
+			return MEM_ALLOC_ERROR;
+		}
+
+		// Make create_tcp_hdr handle IPv6 = OK
 
 		// Check checksum calculaition
 		// Pray that kernel adds IPv6 IP header automatically
