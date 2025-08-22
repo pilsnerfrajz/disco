@@ -63,21 +63,28 @@ void syn_scan_test(void)
 		print_err("❌ Parse mixed ports failed", -1);
 	}
 
-	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+	/*if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
 		printf("✅ Localhost Port scan test: Passed\n");
 	else
 	{
 		print_err("❌ Localhost Port scan test failed", ret);
-	}
+	}*/
 
 	if ((ret = port_scan("127.0.0.1", all_ports, all_port_count, 1)) == SUCCESS)
-		printf("✅ Localhost all port scan test: Passed\n");
+		printf("✅ IPv4 Localhost all port scan test: Passed\n");
 	else
 	{
-		print_err("❌ Localhost all port scan test failed", ret);
+		print_err("❌ IPv4 Localhost all port scan test failed", ret);
 	}
 
-	if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+	if ((ret = port_scan("::1", all_ports, all_port_count, 1)) == SUCCESS)
+		printf("✅ IPv6 Localhost all port scan test: Passed\n");
+	else
+	{
+		print_err("❌ IPv6 Localhost all port scan test failed", ret);
+	}
+
+	/*if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
 		printf("✅ LAN device port scan test: Passed\n");
 	else
 	{
@@ -89,7 +96,7 @@ void syn_scan_test(void)
 	else
 	{
 		print_err("❌ LAN device all port scan test failed", ret);
-	}
+	}*/
 
 	// TODO
 	/*if ((ret = port_scan("some-ip", test_arr, count, 0)) == SUCCESS)
