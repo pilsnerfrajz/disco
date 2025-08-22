@@ -671,25 +671,25 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 	tcp_header_t tcp_hdr = {0};
 
+	pcap_if_t *alldevs = NULL;
+	rv = pcap_handle_setup(&handle, alldevs, src_info);
+	if (rv != 0)
+	{
+		cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
+		return rv;
+	}
+
+	rv = pcap_filter_setup(address, src_info);
+	if (rv != 0)
+	{
+		cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
+		return rv;
+	}
+
 	if (dst->ai_family == AF_INET)
 	{
 		tcp_pseudo_ipv4_t tcp_pseudo_ipv4 = {0};
 		create_ipv4_pseudo_hdr(&tcp_pseudo_ipv4, bind_ptr, dst, protocol);
-
-		pcap_if_t *alldevs = NULL;
-		rv = pcap_handle_setup(&handle, alldevs, src_info);
-		if (rv != 0)
-		{
-			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
-			return rv;
-		}
-
-		rv = pcap_filter_setup(address, src_info);
-		if (rv != 0)
-		{
-			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
-			return rv;
-		}
 
 		struct callback_data c_data = {0};
 		if (strncmp("127.0.0.1", address, 10) == 0)
@@ -809,6 +809,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		create_ipv6_pseudo_hdr(&tcp_pseudo_ipv6, bind_ptr, dst, protocol);
 
 		// Make create_tcp_hdr handle IPv6
+
 		// Check checksum calculaition
 		// Pray that kernel adds IPv6 IP header automatically
 		// Separat sending code for reuse in IPv6
