@@ -673,8 +673,7 @@ static int send_syn(int sfd,
 					struct src_info src_info,
 					u_int8_t *checksum_buf,
 					int address_family,
-					pthread_t thread,
-					pcap_if_t *alldevs)
+					pthread_t thread)
 {
 	for (int r = 0; r < RETRIES; r++)
 	{
@@ -838,7 +837,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 
 		rv = send_syn(sfd, dst, &tcp_hdr, &tcp_pseudo_ipv4, &c_data,
 					  port_count, port_arr, src_info, checksum_buf,
-					  dst->ai_family, thread, alldevs);
+					  dst->ai_family, thread);
 		if (rv != 0)
 		{
 			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
@@ -863,30 +862,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		/* Restore alarm handler */
 		signal(SIGALRM, SIG_DFL);
 
-		// TODO Remove print
-		if (print_state)
-			printf("PORT\tSTATE\n");
-
-		for (int p_index = 0; p_index < port_count; p_index++)
-		{
-			// printf("Port: %d, %d\n", port_arr[p_index], c_data.port_status[port_arr[p_index]]);
-			//  TODO: Write results to file if specified
-			if (print_state)
-			{
-				if (c_data.port_status[port_arr[p_index]] == OPEN)
-				{
-					printf("%d\topen\n", port_arr[p_index]);
-				}
-				else if (c_data.port_status[port_arr[p_index]] == CLOSED)
-				{
-					// printf("%d\tclosed\n", port_arr[p_index]);
-				}
-				// TODO Count unknown ports and print res
-			}
-		}
-
 		cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
-		return SUCCESS;
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
@@ -923,4 +899,27 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
 		return UNKNOWN_FAMILY;
 	}
+
+	// TODO Remove print
+	if (print_state)
+		printf("PORT\tSTATE\n");
+
+	for (int p_index = 0; p_index < port_count; p_index++)
+	{
+		// printf("Port: %d, %d\n", port_arr[p_index], c_data.port_status[port_arr[p_index]]);
+		//  TODO: Write results to file if specified
+		if (print_state)
+		{
+			if (c_data.port_status[port_arr[p_index]] == OPEN)
+			{
+				printf("%d\topen\n", port_arr[p_index]);
+			}
+			else if (c_data.port_status[port_arr[p_index]] == CLOSED)
+			{
+				// printf("%d\tclosed\n", port_arr[p_index]);
+			}
+			// TODO Count unknown ports and print res
+		}
+	}
+	return SUCCESS;
 }
