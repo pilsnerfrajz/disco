@@ -7,6 +7,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <unistd.h>
 #include <limits.h>
 
@@ -30,7 +31,8 @@
 #define IP_PACKET_LEN 65535
 #define CAP_TIMEOUT 100 /* Milliseconds */
 #define ALARM_SEC 2
-#define ETH_TYPE_IP 0x0800
+#define ETH_TYPE_IPV4 0x0800
+#define ETH_TYPE_IPV6 0x86DD
 #define IP_PROTO_TCP 0x06
 #define REALLOC_SIZE 1024
 #define UNKNOWN 0
@@ -79,20 +81,41 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 {
 	struct callback_data *c_data = (struct callback_data *)user;
 	tcp_header_t *tcp_hdr;
+
 	/* If loopback */
 	if (c_data->loopback_flag)
 	{
 		int skip_null = 4;
 		struct ip *ip_hdr = (struct ip *)(bytes + skip_null);
-		if (ip_hdr->ip_p != IP_PROTO_TCP)
+
+		/* Check if IPv4 */
+		if (ip_hdr->ip_v == 4 && ip_hdr->ip_p == IP_PROTO_TCP)
 		{
+			int ip_len = ip_hdr->ip_hl * 4;
+			tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
+		}
+		/* Check if IPv6 */
+		else if (ip_hdr->ip_v == 6)
+		{
+			struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + skip_null);
+			if (ip6_hdr->ip6_nxt == IP_PROTO_TCP)
+			{
+				tcp_hdr = (tcp_header_t *)(bytes + skip_null + sizeof(struct ip6_hdr));
+			}
+			else
+			{
+				return;
+			}
+		}
+		else
+		{
+			/* Invalid IP version */
 			return;
 		}
-		int ip_len = ip_hdr->ip_hl * 4;
-		tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
 	}
 	else
 	{
+		/* Check minimum packet size for IPv4 */
 		if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
 							   sizeof(struct ip) +
 							   sizeof(tcp_header_t)))
@@ -101,17 +124,41 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		}
 
 		ethernet_header_t *eth = (ethernet_header_t *)bytes;
-		if (ntohs(eth->ptype) != ETH_TYPE_IP)
+
+		/* Handle IPv4 packets */
+		if (ntohs(eth->ptype) == ETH_TYPE_IPV4)
 		{
+			struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
+			if (ip_hdr->ip_p != IP_PROTO_TCP)
+			{
+				return;
+			}
+			int ip_len = ip_hdr->ip_hl * 4;
+			tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
+		}
+		/* Handle IPv6 packets */
+		else if (ntohs(eth->ptype) == ETH_TYPE_IPV6)
+		{
+			/* Check minimum packet size for IPv6 */
+			if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
+								   sizeof(struct ip6_hdr) +
+								   sizeof(tcp_header_t)))
+			{
+				return;
+			}
+
+			struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + sizeof(ethernet_header_t));
+			if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
+			{
+				return;
+			}
+			tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
+		}
+		else
+		{
+			/* Invalid protocol type */
 			return;
 		}
-		struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
-		if (ip_hdr->ip_p != IP_PROTO_TCP)
-		{
-			return;
-		}
-		int ip_len = ip_hdr->ip_hl * 4;
-		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
 	}
 
 	if (tcp_hdr->flags == SYN_ACK)
@@ -616,6 +663,68 @@ static int create_tcp_hdr(tcp_header_t *tcp_hdr,
 	return -1;
 }
 
+static int send_syn(int sfd,
+					struct addrinfo *dst,
+					tcp_header_t *tcp_hdr,
+					void *pseudo_header,
+					struct callback_data *c_data,
+					int port_count,
+					unsigned short *port_arr,
+					struct src_info src_info,
+					u_int8_t *checksum_buf,
+					int address_family,
+					pthread_t thread,
+					pcap_if_t *alldevs)
+{
+	for (int r = 0; r < RETRIES; r++)
+	{
+		for (int p_index = 0; p_index < port_count; p_index++)
+		{
+			if (port_arr[p_index] <= 0)
+			{
+				continue;
+			}
+
+			/* Skip if port has already responded (open or closed) */
+			if (c_data->port_status[port_arr[p_index]] != UNKNOWN)
+			{
+				continue;
+			}
+
+			usleep(4000);
+
+			if (create_tcp_hdr(tcp_hdr, src_info, port_arr[p_index],
+							   checksum_buf, pseudo_header, address_family) != 0)
+			{
+				// TODO Error code if error occurs?
+				continue;
+			}
+
+			ssize_t bytes_left = sizeof(tcp_header_t);
+			ssize_t total_sent = 0;
+			ssize_t sent;
+			while (total_sent < bytes_left)
+			{
+				sent = sendto(sfd, (char *)tcp_hdr + total_sent,
+							  bytes_left - total_sent, 0,
+							  dst->ai_addr,
+							  dst->ai_addrlen);
+				if (sent == -1)
+				{
+					/* Break loop and wait for thread before cleanup */
+					pcap_breakloop(handle);
+					void *thread_val;
+					pthread_join(thread, &thread_val);
+					return SOCKET_ERROR;
+				}
+				total_sent += sent;
+			}
+		}
+	}
+
+	return 0;
+}
+
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
 {
 	printf("Scanning %d ports on %s...\n", port_count, address);
@@ -727,51 +836,13 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return PTHREAD_CREATE;
 		}
 
-		for (int r = 0; r < RETRIES; r++)
+		rv = send_syn(sfd, dst, &tcp_hdr, &tcp_pseudo_ipv4, &c_data,
+					  port_count, port_arr, src_info, checksum_buf,
+					  dst->ai_family, thread, alldevs);
+		if (rv != 0)
 		{
-			for (int p_index = 0; p_index < port_count; p_index++)
-			{
-				if (port_arr[p_index] <= 0)
-				{
-					continue;
-				}
-
-				/* Skip if port has already responded (open or closed) */
-				if (c_data.port_status[port_arr[p_index]] != UNKNOWN)
-				{
-					continue;
-				}
-
-				usleep(4000);
-
-				if (create_tcp_hdr(&tcp_hdr, src_info, port_arr[p_index],
-								   checksum_buf, &tcp_pseudo_ipv4, AF_INET) != 0)
-				{
-					// TODO Error code if error occurs?
-					continue;
-				}
-
-				ssize_t bytes_left = sizeof(tcp_header_t);
-				ssize_t total_sent = 0;
-				ssize_t sent;
-				while (total_sent < bytes_left)
-				{
-					sent = sendto(sfd, (char *)&tcp_hdr + total_sent,
-								  bytes_left - total_sent, 0,
-								  dst->ai_addr,
-								  dst->ai_addrlen);
-					if (sent == -1)
-					{
-						/* Break loop and wait for thread before cleanup */
-						pcap_breakloop(handle);
-						void *thread_val;
-						pthread_join(thread, &thread_val);
-						cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
-						return SOCKET_ERROR;
-					}
-					total_sent += sent;
-				}
-			}
+			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			return rv;
 		}
 
 		/* Link capture to alarm */
