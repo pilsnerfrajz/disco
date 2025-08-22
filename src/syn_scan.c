@@ -499,6 +499,19 @@ static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src
 					break;
 				}
 			}
+			else if (a->addr && a->addr->sa_family == AF_INET6)
+			{
+				struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)a->addr;
+				char ipv6_str[INET6_ADDRSTRLEN];
+				if (inet_ntop(AF_INET6, &sin6->sin6_addr, ipv6_str, INET6_ADDRSTRLEN))
+				{
+					if (strcmp(ipv6_str, if_ip) == 0)
+					{
+						if_name = d;
+						break;
+					}
+				}
+			}
 		}
 		if (if_name)
 		{
@@ -866,10 +879,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
-		// TODO
-		// Socket is address family agnostic = OK
-
-		// Create IPv6 pseudo header
 		tcp_pseudo_ipv6_t tcp_pseudo_ipv6 = {0};
 		create_ipv6_pseudo_hdr(&tcp_pseudo_ipv6, bind_ptr, dst, protocol);
 
@@ -885,14 +894,43 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 			return MEM_ALLOC_ERROR;
 		}
 
-		// Make create_tcp_hdr handle IPv6 = OK
+		/* Start capture in a separate thread */
+		pthread_t thread;
+		rv = pthread_create(&thread, NULL, capture_thread, &c_data);
+		if (rv != 0)
+		{
+			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			return PTHREAD_CREATE;
+		}
 
-		// Check checksum calculaition
-		// Pray that kernel adds IPv6 IP header automatically
-		// Separat sending code for reuse in IPv6
-		// ???
+		rv = send_syn(sfd, dst, &tcp_hdr, &tcp_pseudo_ipv6, &c_data,
+					  port_count, port_arr, src_info, checksum_buf,
+					  dst->ai_family, thread);
+		if (rv != 0)
+		{
+			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			return rv;
+		}
 
-		return NO_RESPONSE;
+		/* Link capture to alarm */
+		signal(SIGALRM, break_capture);
+
+		/* Start capture timer */
+		alarm(ALARM_SEC);
+
+		/* Remove thread */
+		void *thread_val;
+		pthread_join(thread, &thread_val);
+		if ((int)(intptr_t)thread_val != 0)
+		{
+			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			return PCAP_LOOP;
+		}
+
+		/* Restore alarm handler */
+		signal(SIGALRM, SIG_DFL);
+
+		cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
 	}
 	else
 	{
