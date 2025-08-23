@@ -14,6 +14,7 @@
 #include "../include/utils.h"
 #include "../include/error.h"
 #include "../include/headers.h"
+#include "../include/syn_scan.h"
 
 #include <pcap/pcap.h> /* Read packets */
 
@@ -183,7 +184,7 @@ void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
  * @return int returns 0 on success. SOCKET_ERROR or -1 is returned if an error
  * occurs.
  */
-int get_src_info(struct addrinfo *dst, struct src_info *src_info)
+static int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 {
 	int sock = socket(dst->ai_family, SOCK_DGRAM, 0);
 	if (sock < 0)
@@ -282,6 +283,20 @@ int get_src_info(struct addrinfo *dst, struct src_info *src_info)
 	return 0;
 }
 
+/**
+ * @brief Gets the address and port from the `src_info` struct and prepares
+ * it for use in `bind()`. The `bind_ptr` parameter points to the address
+ * structure to bind to. The `bind_ptr_len` parameter stores the length of the
+ * address structure, needed in the `bind()` call.
+ *
+ * @param bind_ptr Pointer to the address structure to bind to.
+ * @param bind_ptr_len Pointer to store the length of the address structure.
+ * @param dst Destination address information.
+ * @param src_info Source address information.
+ * @param bind_ipv4 IPv4 bind address structure.
+ * @param bind_ipv6 IPv6 bind address structure.
+ * @return `int` Returns 0 on success. SOCKET_ERROR is returned if an error occurs.
+ */
 static int get_bind_addr(struct sockaddr **bind_ptr,
 						 socklen_t *bind_ptr_len,
 						 struct addrinfo *dst,
@@ -318,15 +333,6 @@ static int get_bind_addr(struct sockaddr **bind_ptr,
 	return 0;
 }
 
-/**
- * @brief Parses a string with a format similar to `"1,2,3-5,6"`, and returns it
- * as an unsigned short array `[1,2,3,4,5,6]`. The returned array should be freed with
- * `free()`.
- *
- * @param port_str The string to parse.
- * @param port_count int to store the number of ports in.
- * @return unsigned short* array.
- */
 unsigned short *parse_ports(const char *port_str, int *port_count)
 {
 	unsigned short seen_ports[65536] = {0};
@@ -435,7 +441,13 @@ unsigned short *parse_ports(const char *port_str, int *port_count)
 	return ports;
 }
 
-void *capture_thread(void *arg)
+/**
+ * @brief Thread function for capturing packets with `pcap_loop()`.
+ *
+ * @param arg Pointer to the argument passed to the thread.
+ * @return `void*`. Cast to int with `(int)(intptr_t)` to check the return value.
+ */
+static void *capture_thread(void *arg)
 {
 	int rv = pcap_loop(handle, 0, tcp_process_pkt, (u_char *)arg);
 	if (rv == PCAP_ERROR)
@@ -446,9 +458,17 @@ void *capture_thread(void *arg)
 	return (void *)(intptr_t)SUCCESS;
 }
 
+/**
+ * @brief Helper function for freeing allocated memory.
+ *
+ * @param dst
+ * @param sfd Socket file descriptor
+ * @param handle pcap handle
+ * @param checksum_buf buffer for storing packet checksums
+ * @param src_info Source port and address information
+ */
 static void cleanup(struct addrinfo *dst, int sfd, pcap_t *handle,
-					pcap_if_t *alldevs, u_int8_t *checksum_buf,
-					struct src_info *src_info)
+					u_int8_t *checksum_buf, struct src_info *src_info)
 {
 	free_dst_addr_struct(dst);
 	free(checksum_buf);
@@ -457,17 +477,22 @@ static void cleanup(struct addrinfo *dst, int sfd, pcap_t *handle,
 	{
 		pcap_close(handle);
 	}
-	if (alldevs)
-	{
-		pcap_freealldevs(alldevs);
-	}
 	if (src_info && src_info->ip)
 	{
 		free(src_info->ip);
 	}
 }
 
-static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src_info)
+/**
+ * @brief Setup for a pcap handle. Initiates a packet capture on the correct
+ * network interface based on the source address in `src_info` and allocates
+ * memory for the capture buffer.
+ *
+ * @param h Pointer to the pcap handle
+ * @param src_info Source port and address information
+ * @return `int` 0 on success or an error found in `error.h` if an error occurs.
+ */
+static int pcap_handle_setup(pcap_t **h, struct src_info src_info)
 {
 	/* Initialize library */
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -477,9 +502,14 @@ static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src
 		return PCAP_INIT;
 	}
 
+	pcap_if_t *alldevs = NULL;
 	/* Get capture interface */
 	if (pcap_findalldevs(&alldevs, errbuf) == -1)
 	{
+		if (alldevs)
+		{
+			pcap_freealldevs(alldevs);
+		}
 		return IFACE_ERROR;
 	}
 
@@ -521,12 +551,20 @@ static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src
 
 	if (!if_name)
 	{
+		if (alldevs)
+		{
+			pcap_freealldevs(alldevs);
+		}
 		return IFACE_ERROR;
 	}
 
 	*h = pcap_create(if_name->name, errbuf);
 	if (*h == NULL)
 	{
+		if (alldevs)
+		{
+			pcap_freealldevs(alldevs);
+		}
 		/* Check if the error occured because of insufficient privileges */
 		if (strstr(errbuf, "Operation not permitted"))
 		{
@@ -535,39 +573,34 @@ static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src
 		return PCAP_OPEN;
 	}
 
+	if (alldevs)
+	{
+		pcap_freealldevs(alldevs);
+	}
+
 	if (pcap_set_snaplen(*h, IP_PACKET_LEN) != 0)
 	{
-		pcap_close(*h);
-		*h = NULL;
-		return PCAP_OPEN;
+		goto handle_cleanup;
 	}
 
 	if (pcap_set_promisc(*h, 0) != 0)
 	{
-		pcap_close(*h);
-		*h = NULL;
-		return PCAP_OPEN;
+		goto handle_cleanup;
 	}
 
 	if (pcap_set_immediate_mode(*h, 1) != 0)
 	{
-		pcap_close(*h);
-		*h = NULL;
-		return PCAP_OPEN;
+		goto handle_cleanup;
 	}
 
 	if (pcap_set_timeout(*h, CAP_TIMEOUT) != 0)
 	{
-		pcap_close(*h);
-		*h = NULL;
-		return PCAP_OPEN;
+		goto handle_cleanup;
 	}
 
 	if (pcap_set_buffer_size(*h, 5000000) != 0)
 	{
-		pcap_close(*h);
-		*h = NULL;
-		return PCAP_OPEN;
+		goto handle_cleanup;
 	}
 
 	rv = pcap_activate(*h);
@@ -581,13 +614,16 @@ static int pcap_handle_setup(pcap_t **h, pcap_if_t *alldevs, struct src_info src
 		}
 		else if (rv < 0)
 		{
-			pcap_close(*h);
-			*h = NULL;
-			return PCAP_OPEN;
+			goto handle_cleanup;
 		}
 		// TODO Log warnings if rv > 0?
 	}
 	return 0;
+
+handle_cleanup:
+	pcap_close(*h);
+	*h = NULL;
+	return PCAP_OPEN;
 }
 
 static int pcap_filter_setup(char *address, struct src_info src_info)
@@ -795,7 +831,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	int rv = set_socket_options(sfd, TIMEOUT_SECONDS);
 	if (rv != 0)
 	{
-		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
+		cleanup(dst, sfd, handle, NULL, &src_info);
 		return SOCKET_ERROR;
 	}
 
@@ -807,31 +843,30 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	rv = get_bind_addr(&bind_ptr, &bind_ptr_len, dst, &src_info, &bind_ipv4, &bind_ipv6);
 	if (rv != 0)
 	{
-		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
+		cleanup(dst, sfd, handle, NULL, &src_info);
 		return rv;
 	}
 
 	rv = bind(sfd, bind_ptr, bind_ptr_len);
 	if (rv == -1)
 	{
-		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
+		cleanup(dst, sfd, handle, NULL, &src_info);
 		return SOCKET_ERROR;
 	}
 
 	tcp_header_t tcp_hdr = {0};
 
-	pcap_if_t *alldevs = NULL;
-	rv = pcap_handle_setup(&handle, alldevs, src_info);
+	rv = pcap_handle_setup(&handle, src_info);
 	if (rv != 0)
 	{
-		cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
+		cleanup(dst, sfd, handle, NULL, &src_info);
 		return rv;
 	}
 
 	rv = pcap_filter_setup(address, src_info);
 	if (rv != 0)
 	{
-		cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
+		cleanup(dst, sfd, handle, NULL, &src_info);
 		return rv;
 	}
 
@@ -850,7 +885,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		u_int8_t *checksum_buf = malloc(CHECKSUM_LEN_IPV4);
 		if (checksum_buf == NULL)
 		{
-			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
+			cleanup(dst, sfd, handle, NULL, &src_info);
 			return MEM_ALLOC_ERROR;
 		}
 
@@ -859,7 +894,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		rv = pthread_create(&thread, NULL, capture_thread, &c_data);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			cleanup(dst, sfd, handle, checksum_buf, &src_info);
 			return PTHREAD_CREATE;
 		}
 
@@ -868,7 +903,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 					  dst->ai_family, thread);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			cleanup(dst, sfd, handle, checksum_buf, &src_info);
 			return rv;
 		}
 
@@ -883,14 +918,14 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		pthread_join(thread, &thread_val);
 		if ((int)(intptr_t)thread_val != 0)
 		{
-			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			cleanup(dst, sfd, handle, checksum_buf, &src_info);
 			return PCAP_LOOP;
 		}
 
 		/* Restore alarm handler */
 		signal(SIGALRM, SIG_DFL);
 
-		cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+		cleanup(dst, sfd, handle, checksum_buf, &src_info);
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
@@ -905,7 +940,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		u_int8_t *checksum_buf = malloc(CHECKSUM_LEN_IPV6);
 		if (checksum_buf == NULL)
 		{
-			cleanup(dst, sfd, handle, alldevs, NULL, &src_info);
+			cleanup(dst, sfd, handle, NULL, &src_info);
 			return MEM_ALLOC_ERROR;
 		}
 
@@ -914,7 +949,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		rv = pthread_create(&thread, NULL, capture_thread, &c_data);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			cleanup(dst, sfd, handle, checksum_buf, &src_info);
 			return PTHREAD_CREATE;
 		}
 
@@ -923,7 +958,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 					  dst->ai_family, thread);
 		if (rv != 0)
 		{
-			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			cleanup(dst, sfd, handle, checksum_buf, &src_info);
 			return rv;
 		}
 
@@ -938,18 +973,18 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		pthread_join(thread, &thread_val);
 		if ((int)(intptr_t)thread_val != 0)
 		{
-			cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+			cleanup(dst, sfd, handle, checksum_buf, &src_info);
 			return PCAP_LOOP;
 		}
 
 		/* Restore alarm handler */
 		signal(SIGALRM, SIG_DFL);
 
-		cleanup(dst, sfd, handle, alldevs, checksum_buf, &src_info);
+		cleanup(dst, sfd, handle, checksum_buf, &src_info);
 	}
 	else
 	{
-		cleanup(dst, sfd, handle, NULL, NULL, &src_info);
+		cleanup(dst, sfd, handle, NULL, &src_info);
 		return UNKNOWN_FAMILY;
 	}
 
