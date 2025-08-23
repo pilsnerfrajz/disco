@@ -783,7 +783,7 @@ static int send_syn(int sfd,
 {
 	for (int r = 0; r < RETRIES; r++)
 	{
-		for (int p_index = 0; p_index < port_count; p_index++)
+		for (int p_index = 0; p_index < port_count && p_index < 65536; p_index++)
 		{
 			if (port_arr[p_index] <= 0)
 			{
@@ -830,7 +830,7 @@ static int send_syn(int sfd,
 	return 0;
 }
 
-int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state)
+int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state, short **result_arr)
 {
 	printf("┌ Scanning %d ports on %s...\n", port_count, address);
 
@@ -1043,26 +1043,37 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		return UNKNOWN_FAMILY;
 	}
 
-	// TODO Remove print
 	if (print_state)
+	{
+		// TODO Remove pipe operator
 		printf("| PORT\tSTATE\n");
 
-	for (int p_index = 0; p_index < port_count; p_index++)
-	{
-		// printf("Port: %d, %d\n", port_arr[p_index], c_data.port_status[port_arr[p_index]]);
-		//  TODO: Write results to file if specified
-		if (print_state)
+		for (int p_index = 0; p_index < port_count; p_index++)
 		{
-			if (c_data.port_status[port_arr[p_index]] == OPEN)
+			if (print_state)
 			{
-				printf("│ %d\topen\n", port_arr[p_index]);
+				if (c_data.port_status[port_arr[p_index]] == OPEN)
+				{
+					printf("│ %d\topen\n", port_arr[p_index]);
+				}
+				else if (c_data.port_status[port_arr[p_index]] == CLOSED)
+				{
+					// printf("%d\tclosed\n", port_arr[p_index]);
+				}
+				// TODO Count unknown ports and print res
 			}
-			else if (c_data.port_status[port_arr[p_index]] == CLOSED)
-			{
-				// printf("%d\tclosed\n", port_arr[p_index]);
-			}
-			// TODO Count unknown ports and print res
 		}
 	}
+
+	/* Save results to supplied result_arr for use in caller */
+	if (result_arr != NULL)
+	{
+		*result_arr = malloc(65536 * sizeof(short));
+		if (*result_arr != NULL)
+		{
+			memcpy(*result_arr, (short *)c_data.port_status, 65536 * sizeof(short));
+		}
+	}
+
 	return SUCCESS;
 }
