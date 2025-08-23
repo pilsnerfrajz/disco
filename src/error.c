@@ -5,6 +5,12 @@
 
 void print_err(char *function, int err_val)
 {
+	/* Don't care */
+	if (err_val == -1)
+	{
+		fprintf(stderr, "%s\n", function);
+		return;
+	}
 	fprintf(stderr, "%s: %s\n", function, error_strings[err_val]);
 }
 
@@ -25,6 +31,8 @@ const char *const error_strings[] = {
 	"pcap_inject error",
 	"pcap_filter error",
 	"pcap_loop error",
-};
+	"Error creating thread",
+	"An error occurred while getting source address",
+	"Address family not supported"};
 
 static_assert(ENUMS == COUNT, "Enums and err strings are not equal.\n");

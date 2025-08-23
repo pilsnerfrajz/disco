@@ -25,6 +25,7 @@
 
 #include <pcap/pcap.h> /* Send/read packets */
 
+#include "../include/headers.h"
 #include "../include/arp.h"
 #include "../include/utils.h"
 #include "../include/error.h"

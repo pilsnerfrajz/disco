@@ -28,7 +28,7 @@ struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = sock_type;
-	hints.ai_flags = AI_PASSIVE;
+	// hints.ai_flags = AI_PASSIVE;
 
 	int ret = getaddrinfo(dst, NULL, &hints, &dst_info);
 	if (ret != 0)
@@ -37,14 +37,29 @@ struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 	}
 
 	struct addrinfo *temp = dst_info;
+	struct addrinfo *ipv4_result = NULL;
+	struct addrinfo *ipv6_result = NULL;
+
+	// Find both IPv4 and IPv6 addresses
 	while (temp != NULL)
 	{
-		if (temp->ai_family == AF_INET || temp->ai_family == AF_INET6)
+		if (temp->ai_family == AF_INET && ipv4_result == NULL)
 		{
-			break;
+			ipv4_result = temp;
+		}
+		else if (temp->ai_family == AF_INET6 && ipv6_result == NULL)
+		{
+			ipv6_result = temp;
 		}
 		temp = temp->ai_next;
 	}
+
+	/*
+	 * Use IPv4 is available. My system only seem to have IPv4 interfaces
+	 * available. getaddrinfo seems to resolve domain names to IPv6 which
+	 * causes a routing problem. :(
+	 */
+	temp = ipv4_result ? ipv4_result : ipv6_result;
 
 	if (temp == NULL)
 	{
@@ -92,4 +107,44 @@ int validate_ip(char *ip)
 		return 0;
 	}
 	return -1;
+}
+
+int set_socket_options(int sfd, int s_timeout)
+{
+	struct timeval timeout = {
+		.tv_sec = s_timeout,
+		.tv_usec = 0,
+	};
+
+	int rv = setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+	if (rv == -1)
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
+uint16_t calc_checksum(void *hdr, int len)
+{
+	uint16_t *temp = hdr;
+	uint32_t sum = 0;
+
+	/* count 16 bits each iteration */
+	for (sum = 0; len > 1; len -= 2)
+	{
+		sum += *temp++;
+	}
+
+	if (len == 1)
+	{
+		sum += *(uint8_t *)temp;
+	}
+
+	while (sum >> 16)
+	{
+		sum = (sum >> 16) + (sum & 0xffff);
+	}
+
+	return ~sum;
 }

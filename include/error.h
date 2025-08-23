@@ -21,6 +21,9 @@ typedef enum err
 	PCAP_INJECT,
 	PCAP_FILTER,
 	PCAP_LOOP,
+	PTHREAD_CREATE,
+	SRC_ADDR,
+	UNKNOWN_FAMILY,
 	COUNT, /* Not used, only for assert */
 } err_t;
 

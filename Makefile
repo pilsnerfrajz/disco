@@ -10,7 +10,7 @@ TEST_OBJS := $(notdir $(patsubst %.c,%.o, $(wildcard $(TESTS_DIR)/*.c)))
 
 CC := gcc
 CFLAGS := -Wall -Wextra -pedantic
-LDFLAGS := -lpcap
+LDFLAGS := -lpcap -lpthread
 
 $(NAME): dir $(OBJS)
 	$(CC) $(CFLAGS) -o $(BIN_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%, $(OBJS)) $(LDFLAGS)

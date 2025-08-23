@@ -17,24 +17,11 @@
 #include "../include/utils.h"
 #include "../include/error.h"
 #include "../include/ping.h"
+#include "../include/headers.h"
 
 #define TIMEOUT_SECONDS 2
 #define ICMP_BUFSIZE 124
 #define REPLY_RETRIES 3
-
-/**
- * @brief ICMP6 pseudo header used when calculating the checksum
- * for an ICMP6 packet.
- *
- */
-typedef struct icmp6_pseudo_hdr
-{
-	struct in6_addr source;
-	struct in6_addr dest;
-	u_int32_t length;
-	u_int32_t zero[3];
-	u_int8_t next;
-} icmp6_pseudo_hdr_t;
 
 /**
  * @brief Gets a proto object for the ICMP or ICMP6 protocols.
@@ -60,60 +47,6 @@ struct protoent *get_proto(struct addrinfo *dst)
 	}
 
 	return protocol;
-}
-
-/**
- * @brief Sets a timeout on the socket. The socket blocks for `TIMEOUT_SECONDS`
- * if no data is received, before proceeding.
- *
- * @param sfd The socket file descriptor.
- * @return `int` 0 if options are set correctly. Otherwise -1.
- */
-int set_socket_options(int sfd)
-{
-	struct timeval timeout = {
-		.tv_sec = TIMEOUT_SECONDS,
-		.tv_usec = 0,
-	};
-
-	int rv = setsockopt(sfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-	if (rv == -1)
-	{
-		return -1;
-	}
-
-	return 0;
-}
-
-/**
- * @brief Calculates the internet checksum of an ICMP header or ICMP6 pseudo header.
- *
- * @param hdr The address of the header struct.
- * @param len The size of the header struct.
- * @return `uint16_t` Internet checksum of header struct.
- */
-uint16_t calc_checksum(void *hdr, int len)
-{
-	uint16_t *temp = hdr;
-	uint32_t sum = 0;
-
-	/* count 16 bits each iteration */
-	for (sum = 0; len > 1; len -= 2)
-	{
-		sum += *temp++;
-	}
-
-	if (len == 1)
-	{
-		sum += *(uint8_t *)temp;
-	}
-
-	while (sum >> 16)
-	{
-		sum = (sum >> 16) + (sum & 0xffff);
-	}
-
-	return ~sum;
 }
 
 /**
@@ -285,7 +218,7 @@ int ping(char *address, int tries)
 		return SOCKET_ERROR;
 	}
 
-	rv = set_socket_options(sfd);
+	rv = set_socket_options(sfd, TIMEOUT_SECONDS);
 	if (rv == -1)
 	{
 		free_dst_addr_struct(dst);
@@ -352,9 +285,9 @@ int ping(char *address, int tries)
 			/* parse the dst struct to get a suitable structure to use in pseudo */
 			struct sockaddr_in6 *temp_sockaddr = (struct sockaddr_in6 *)dst->ai_addr;
 			struct in6_addr dest_addr = temp_sockaddr->sin6_addr;
-			struct icmp6_pseudo_hdr pseudo_hdr = {
-				.source = src.sin6_addr,
-				.dest = dest_addr,
+			tcp_pseudo_ipv6_t pseudo_hdr = {
+				.src_ip = src.sin6_addr,
+				.dst_ip = dest_addr,
 				.zero = {0, 0, 0},
 				.length = htonl(sizeof(icmp6_req_hdr)),
 				.next = IPPROTO_ICMPV6,
