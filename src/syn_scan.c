@@ -750,6 +750,26 @@ static int create_tcp_hdr(tcp_header_t *tcp_hdr,
 	return -1;
 }
 
+/**
+ * @brief Create and send TCP SYN packets. Retries are made up to `RETRIES`
+ * times for ports that have not responded. The port statuses are stored in
+ * the `c_data` struct.
+ *
+ * It is possible to add control over packet delay and retries later.
+ *
+ * @param sfd Socket file descriptor.
+ * @param dst Destination address information.
+ * @param tcp_hdr Pointer to the TCP header struct to populate.
+ * @param pseudo_header Pointer to the pseudo header information.
+ * @param c_data Pointer to the callback data struct.
+ * @param port_count Number of ports to scan.
+ * @param port_arr Array of ports to scan.
+ * @param src_info Source port and address information of scanner.
+ * @param checksum_buf Buffer for the checksum calculation.
+ * @param address_family Address family (AF_INET or AF_INET6).
+ * @param thread Capture thread to kill if an error occurs.
+ * @return `int` 0 on success, SOCKET_ERROR if an error occurs.
+ */
 static int send_syn(int sfd,
 					struct addrinfo *dst,
 					tcp_header_t *tcp_hdr,
