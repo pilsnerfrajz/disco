@@ -661,6 +661,15 @@ static int pcap_filter_setup(char *address, struct src_info src_info)
 	return 0;
 }
 
+/**
+ * @brief Creates a TCP pseudo header for IPv4 and stores it in the
+ * `tcp_pseudo_ipv4` struct.
+ *
+ * @param tcp_pseudo_ipv4 Pseudo header struct to store result in.
+ * @param bind_ptr Pointer to the local socket address.
+ * @param dst Pointer to the destination address information.
+ * @param protocol Pointer to the protocol information.
+ */
 static void create_ipv4_pseudo_hdr(tcp_pseudo_ipv4_t *tcp_pseudo_ipv4,
 								   struct sockaddr *bind_ptr,
 								   struct addrinfo *dst,
@@ -673,6 +682,15 @@ static void create_ipv4_pseudo_hdr(tcp_pseudo_ipv4_t *tcp_pseudo_ipv4,
 	tcp_pseudo_ipv4->tcp_len = htons(sizeof(tcp_header_t));
 }
 
+/**
+ * @brief Creates a TCP pseudo header for IPv6 and stores it in the
+ * `tcp_pseudo_ipv6` struct.
+ *
+ * @param tcp_pseudo_ipv6 Pseudo header struct to store result in.
+ * @param bind_ptr Pointer to the local socket address.
+ * @param dst Pointer to the destination address information.
+ * @param protocol Pointer to the protocol information.
+ */
 static void create_ipv6_pseudo_hdr(tcp_pseudo_ipv6_t *tcp_pseudo_ipv6,
 								   struct sockaddr *bind_ptr,
 								   struct addrinfo *dst,
@@ -685,6 +703,17 @@ static void create_ipv6_pseudo_hdr(tcp_pseudo_ipv6_t *tcp_pseudo_ipv6,
 	tcp_pseudo_ipv6->length = htons(sizeof(tcp_header_t));
 }
 
+/**
+ * @brief Creates and stores a TCP header in the tcp_hdr parameter.
+ *
+ * @param tcp_hdr Pointer to the TCP header struct to populate.
+ * @param src_info Source port and address information of scanner.
+ * @param port Destination port to use in the TCP header.
+ * @param checksum_buf Buffer to store the checksum calculation.
+ * @param pseudo_header Pointer to the pseudo header information.
+ * @param address_family Address family (AF_INET or AF_INET6).
+ * @return `int` 0 on success, -1 if the address family is unsupported.
+ */
 static int create_tcp_hdr(tcp_header_t *tcp_hdr,
 						  struct src_info src_info,
 						  unsigned short port,
