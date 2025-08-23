@@ -626,6 +626,15 @@ handle_cleanup:
 	return PCAP_OPEN;
 }
 
+/**
+ * @brief Setup a packet filter for the pcap handle. The current filter looks
+ * for packets coming from the scanned host, destined for the scanning host and
+ * the source port used to send SYN packets.
+ *
+ * @param address The IP address of the scanned host to filter on.
+ * @param src_info Source port and address information of scanner.
+ * @return `int` 0 on success or an error found in `error.h` if an error occurs.
+ */
 static int pcap_filter_setup(char *address, struct src_info src_info)
 {
 	struct bpf_program filter;
@@ -784,7 +793,7 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 	}
 
 	/* Resolve address if domain*/
-	/*char resolved_address[INET6_ADDRSTRLEN];
+	char resolved_address[INET6_ADDRSTRLEN];
 	if (dst->ai_addr->sa_family == AF_INET)
 	{
 		address = inet_ntoa(((struct sockaddr_in *)dst->ai_addr)->sin_addr);
@@ -795,8 +804,6 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 				  resolved_address, INET6_ADDRSTRLEN);
 		address = resolved_address;
 	}
-
-	printf("Scanning: %s\n", address);*/
 
 	struct src_info src_info = {0};
 	if (get_src_info(dst, &src_info) != 0)
