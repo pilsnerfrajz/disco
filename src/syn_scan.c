@@ -77,8 +77,8 @@ static void break_capture(int signum)
 }
 
 /* Callback function for processing the received frames */
-void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
-					 const u_char *bytes)
+static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
+							const u_char *bytes)
 {
 	struct callback_data *c_data = (struct callback_data *)user;
 	tcp_header_t *tcp_hdr;
