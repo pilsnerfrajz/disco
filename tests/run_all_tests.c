@@ -6,10 +6,10 @@
 
 int main(void)
 {
-	/*ping_test();
+	ping_test();
 	printf("\n");
 	arp_test();
-	printf("\n");*/
+	printf("\n");
 	syn_scan_test();
 
 	return 0;
