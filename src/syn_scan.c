@@ -62,7 +62,6 @@ struct src_info
 /* pcap struct to store info from callback function */
 struct callback_data
 {
-	// short port_status;
 	short loopback_flag;
 	volatile short port_status[65536];
 };
