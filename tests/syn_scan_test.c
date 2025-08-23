@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "../include/syn_scan.h"
 #include "../include/error.h"
+#include "../include/ping.h"
 
 #define TEST_ARR_LEN 14
 
@@ -21,7 +22,9 @@ void syn_scan_test(void)
 	int test_port_count = 0;
 	unsigned short *all_ports = NULL;
 	unsigned short *parse_test_ports = NULL;
-	char *lan_dev = "192.168.1.228";
+
+	// TODO CHANGE DURING TESTING
+	char *lan_dev = "192.168.x.x";
 
 	if ((all_ports = parse_ports("1-65535", &all_port_count)) != NULL)
 	{
@@ -64,57 +67,64 @@ void syn_scan_test(void)
 		print_err("❌ Parse mixed ports failed", -1);
 	}
 
-	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, 1, NULL)) == SUCCESS)
 		printf("└ ✅ Localhost IPv4 Port scan test: Passed\n");
 	else
 	{
 		print_err("└ ❌ Localhost IPv4 Port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, 1, NULL)) == SUCCESS)
 		printf("└ ✅ Localhost IPv6 Port scan test: Passed\n");
 	else
 	{
 		print_err("└ ❌ Localhost IPv6 Port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("127.0.0.1", all_ports, all_port_count, 1)) == SUCCESS)
+	if ((ret = port_scan("127.0.0.1", all_ports, all_port_count, 1, NULL)) == SUCCESS)
 		printf("└ ✅ IPv4 Localhost full port scan test: Passed\n");
 	else
 	{
 		print_err("└ ❌ IPv4 Localhost full port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("::1", all_ports, all_port_count, 1)) == SUCCESS)
+	if ((ret = port_scan("::1", all_ports, all_port_count, 1, NULL)) == SUCCESS)
 		printf("└ ✅ IPv6 Localhost full port scan test: Passed\n");
 	else
 	{
 		print_err("└ ❌ IPv6 Localhost full port scan test failed", ret);
 	}
 
-	if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
-		printf("└ ✅ IPv4 LAN device port scan test: Passed\n");
-	else
+	if (ping(lan_dev, 3) == SUCCESS)
 	{
-		print_err("└ ❌ IPv4 LAN device port scan test failed", ret);
-	}
+		if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1, NULL)) == SUCCESS)
+			printf("└ ✅ IPv4 LAN device port scan test: Passed\n");
+		else
+		{
+			print_err("└ ❌ IPv4 LAN device port scan test failed", ret);
+		}
 
-	if ((ret = port_scan(lan_dev, all_ports, all_port_count, 1)) == SUCCESS)
-		printf("└ ✅ IPv4 LAN device full port scan test: Passed\n");
+		if ((ret = port_scan(lan_dev, all_ports, all_port_count, 1, NULL)) == SUCCESS)
+			printf("└ ✅ IPv4 LAN device full port scan test: Passed\n");
+		else
+		{
+			print_err("└ ❌ IPv4 LAN device full port scan test failed", ret);
+		}
+	}
 	else
 	{
-		print_err("└ ❌ IPv4 LAN device full port scan test failed", ret);
+		printf("❌ Cannot reach LAN device. Change lan_dev variable address in tests/syn_scan_test.c to run tests!\n");
 	}
 
 	// TODO
-	/*if ((ret = port_scan("Lan-device-ip", test_arr, TEST_ARR_LEN, 1)) == SUCCESS)
+	/*if ((ret = port_scan("Lan-device-ip", test_arr, TEST_ARR_LEN, 1, NULL)) == SUCCESS)
 		printf("✅ IPv6 Lan Port scan test: Passed\n");
 	else
 	{
 		print_err("❌ IPv6 Lan Port scan test failed", ret);
 	}*/
 
-	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, 1)) == SUCCESS)
+	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, 1, NULL)) == SUCCESS)
 		printf("└ ✅ External Port scan test: Passed\n");
 	else
 	{
