@@ -5,6 +5,8 @@
 #include "../include/ping.h"
 #include "../include/syn_scan.h"
 
+#define RETRIES 3
+
 int default_scan(char *target, char *ports)
 {
 	int rv = arp(target);
@@ -14,30 +16,13 @@ int default_scan(char *target, char *ports)
 	}
 	else
 	{
-		rv = ping(target, 3);
+		rv = ping(target, RETRIES);
 		if (rv != SUCCESS)
 		{
 			print_err("ARP/ping", rv);
 			return NO_RESPONSE;
 		}
 		printf("Host %s is up!\n", target);
-	}
-
-	if (ports != NULL)
-	{
-		int port_count = 0;
-		unsigned short *port_arr = parse_ports(ports, &port_count);
-		if (port_arr == NULL)
-		{
-			fprintf(stderr, "ERROR: an error occurred while parsing ports\n");
-			return -1;
-		}
-		rv = port_scan(target, port_arr, port_count, 1 /*Print state*/, NULL /*Return Array of Results*/);
-		if (rv != SUCCESS)
-		{
-			print_err("TCP SYN", rv);
-			return -1;
-		}
 	}
 
 	return 0;
@@ -62,10 +47,59 @@ int main(int argc, char *argv[])
 		return CLI_PARSE;
 	}
 
-	rv = default_scan(target, ports);
-	if (rv != 0)
+	if (force_arp)
 	{
-		return rv;
+		printf("Forcing ARP host discovery (skipping ICMP fallback)...\n");
+		rv = arp(target);
+		if (rv != SUCCESS)
+		{
+			print_err("ARP", rv);
+			return rv;
+		}
+		printf("Host %s is up!\n", target);
+	}
+
+	if (force_ping)
+	{
+		printf("Forcing ICMP host discovery (skipping ARP attempt)...\n");
+		rv = ping(target, RETRIES);
+		if (rv != SUCCESS)
+		{
+			print_err("Ping", rv);
+			return rv;
+		}
+		printf("Host %s is up!\n", target);
+	}
+
+	if (no_host_disc)
+	{
+		printf("Skipping host discovery...\n");
+	}
+
+	if (!no_host_disc && !force_arp && !force_ping)
+	{
+		rv = default_scan(target, ports);
+		if (rv != 0)
+		{
+			return rv;
+		}
+	}
+
+	if (ports != NULL)
+	{
+		int port_count = 0;
+		unsigned short *port_arr = parse_ports(ports, &port_count);
+		if (port_arr == NULL)
+		{
+			fprintf(stderr, "ERROR: an error occurred while parsing ports\n");
+			return CLI_PARSE;
+		}
+		rv = port_scan(target, port_arr, port_count, 1 /*Print state*/, NULL /*Return Array of Results*/);
+		if (rv != SUCCESS)
+		{
+			print_err("TCP SYN", rv);
+			return rv;
+		}
 	}
 
 	return 0;
