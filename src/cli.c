@@ -35,7 +35,7 @@ void usage(FILE *stream)
 			"  -h, --help      : display this message\n\n");
 }
 
-void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_disc, int *force_ping, int *force_arp)
+int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_disc, int *force_ping, int *force_arp)
 {
 	/* Reset optind for multiple tests to work properly*/
 	optind = 1;
@@ -90,9 +90,9 @@ void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host
 					int count = 0;
 					if (parse_ports(optarg, &count) == NULL)
 					{
-						fprintf(stderr, "Error: Invalid port specification: '-p %s'\n", optarg);
+						fprintf(stderr, "ERROR: invalid port specification: '-p %s'\n\n", optarg);
 						usage(stderr);
-						return;
+						return -1 - 1;
 					}
 					/* Add one for null terminator */
 					*ports = malloc(len + 1);
@@ -114,18 +114,18 @@ void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host
 			break;
 		case 'h':
 			usage(stdout);
-			return;
+			return -1;
 		case '?':
 			if (optopt != 0)
 			{
-				fprintf(stderr, "Error: Unknown option '-%c'\n", optopt);
+				fprintf(stderr, "ERROR: unknown option '-%c'\n\n", optopt);
 			}
 			usage(stderr);
-			return;
+			return -1;
 		default:
-			fprintf(stderr, "Error: Unexpected getopt return value: %c\n", option);
+			fprintf(stderr, "ERROR: unexpected getopt return -1 value: %c\n\n", option);
 			usage(stderr);
-			return;
+			return -1;
 		}
 	}
 
@@ -154,10 +154,19 @@ void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host
 		}
 	}
 
-	// TODO print error if -P and -a are used at the same time
-	/*
-	printf("No host discovery: %s\n", no_host_disc ? "yes" : "no");
-	printf("Use ping only: %s\n", use_ping ? "yes" : "no");
-	printf("Use ARP only: %s\n", use_arp ? "yes" : "no");
-	*/
+	if (*force_arp + *force_ping + *no_host_disc > 1)
+	{
+		fprintf(stderr, "ERROR: conflicting options. Only one of -P, -a and -n can be used at once\n\n");
+		usage(stderr);
+		return -1;
+	}
+
+	if (*target == NULL)
+	{
+		fprintf(stderr, "ERROR: no valid target specified\n\n");
+		usage(stderr);
+		return -1;
+	}
+
+	return 0;
 }
