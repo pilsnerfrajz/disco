@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <getopt.h>
 #include <arpa/inet.h>
 #include "../include/utils.h"
@@ -28,16 +29,10 @@ void usage(void)
 		   "  -h, --help      : display this message\n\n");
 }
 
-void parse_cli(int argc, char *argv[])
+void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_disc, int *force_ping, int *force_arp)
 {
 	/* Reset optind for multiple tests to work properly*/
 	optind = 1;
-
-	char *ports = NULL;
-	char *target = NULL;
-	int no_host_disc = 0;
-	int use_ping = 0;
-	int use_arp = 0;
 
 	static struct option options[] =
 		{
@@ -79,29 +74,43 @@ void parse_cli(int argc, char *argv[])
 		switch (option)
 		{
 		case 'p':
-			ports = optarg;
+			if (optarg != NULL && ports != NULL)
+			{
+				size_t len = strlen(optarg);
+				/* Check if arg is at least one port */
+				if (len > 1)
+				{
+					/* Add one for null terminator */
+					*ports = malloc(len + 1);
+					if (*ports)
+					{
+						strcpy(*ports, optarg);
+					}
+				}
+			}
 			break;
 		case 'n':
-			no_host_disc = 1;
+			*no_host_disc = 1;
 			break;
 		case 'P':
-			use_ping = 1;
+			*force_ping = 1;
 			break;
 		case 'a':
-			use_arp = 1;
+			*force_arp = 1;
 			break;
 		case 'h':
 			usage();
 			return;
 		default:
 			// TODO invalid option print
+			printf("Invalid option: %c\n", option);
 			usage();
 			return;
 		}
 	}
 
 	/* Check unused options for valid domain or IP. First valid found is used */
-	if (!target)
+	if (target != NULL)
 	{
 		while (optind < argc)
 		{
@@ -109,7 +118,15 @@ void parse_cli(int argc, char *argv[])
 			struct addrinfo *r = get_dst_addr_struct(unused, SOCK_RAW);
 			if (r != NULL)
 			{
-				target = unused;
+				if (target != NULL)
+				{
+					size_t len = strlen(unused);
+					*target = malloc(len + 1);
+					if (*target)
+					{
+						strcpy(*target, unused);
+					}
+				}
 				free_dst_addr_struct(r);
 				break;
 			}
@@ -118,10 +135,9 @@ void parse_cli(int argc, char *argv[])
 	}
 
 	// TODO print error if -P and -a are used at the same time
-
-	printf("Ports: %s\n", ports ? ports : "none");
-	printf("Target: %s\n", target ? target : "none");
+	/*
 	printf("No host discovery: %s\n", no_host_disc ? "yes" : "no");
 	printf("Use ping only: %s\n", use_ping ? "yes" : "no");
 	printf("Use ARP only: %s\n", use_arp ? "yes" : "no");
+	*/
 }
