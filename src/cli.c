@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <arpa/inet.h>
+#include "../include/utils.h"
 
 void parse_cli(int argc, char *argv[])
 {
 
 	char *ports = NULL;
+	char *target = NULL;
 
 	static struct option options[] =
 		{
@@ -27,5 +30,23 @@ void parse_cli(int argc, char *argv[])
 		break;
 	}
 
-	printf("Ports: %s\n", ports);
+	/* Check unused options for valid domain or IP. First valid found is used */
+	if (!target)
+	{
+		while (optind < argc)
+		{
+			char *unused = argv[optind];
+			struct addrinfo *r = get_dst_addr_struct(unused, SOCK_RAW);
+			if (r != NULL)
+			{
+				target = unused;
+				free_dst_addr_struct(r);
+				break;
+			}
+			optind++;
+		}
+	}
+
+	printf("Ports: %s\n", ports ? ports : "none");
+	printf("Target: %s\n", target ? target : "none");
 }

@@ -6,7 +6,7 @@ void cli_test(void)
 {
 	printf("-- CLI TESTS --\n");
 
-	char *port_test[] = {"program", "-p", "80,443", NULL};
+	char *parse[] = {"program", "-p", "80,443", "invalid", "127.0.0.1", "::1", NULL};
 
-	parse_cli(3, port_test);
+	parse_cli(6, parse);
 }
