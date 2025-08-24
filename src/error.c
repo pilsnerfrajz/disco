@@ -33,6 +33,7 @@ const char *const error_strings[] = {
 	"pcap_loop error",
 	"Error creating thread",
 	"An error occurred while getting source address",
-	"Address family not supported"};
+	"Address family not supported",
+	"Could not parse command line arguments"};
 
 static_assert(ENUMS == COUNT, "Enums and err strings are not equal.\n");

@@ -24,6 +24,7 @@ typedef enum err
 	PTHREAD_CREATE,
 	SRC_ADDR,
 	UNKNOWN_FAMILY,
+	CLI_PARSE,
 	COUNT, /* Not used, only for assert */
 } err_t;
 
