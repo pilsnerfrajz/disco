@@ -3,36 +3,43 @@
 #include <string.h>
 #include <getopt.h>
 #include <arpa/inet.h>
+#include "../include/syn_scan.h"
 #include "../include/utils.h"
 
-void banner(void)
+void banner(FILE *stream)
 {
-	printf("@@@@@@@,   **  ,@@@@@@@  ,@@@@@@@  ,@@@@@@@,\n"
-		   "**     **  **  @@        **        **     **\n"
-		   "**     **  **  '@@@@@@,  **        **     **\n"
-		   "**     **  **        **  **        **     **\n"
-		   "@@@@@@@'   **  @@@@@@@'  '@@@@@@@  '@@@@@@@'\n\n");
+	fprintf(stream,
+			"@@@@@@@,   **  ,@@@@@@@  ,@@@@@@@  ,@@@@@@@,\n"
+			"**     **  **  @@        **        **     **\n"
+			"**     **  **  '@@@@@@,  **        **     **\n"
+			"**     **  **        **  **        **     **\n"
+			"@@@@@@@'   **  @@@@@@@'  '@@@@@@@  '@@@@@@@'\n\n"
+			"disco - network utility for host discovery and port enumeration\n"
+			"author: pilsnerfrajz\n\n");
 }
 
-void usage(void)
+void usage(FILE *stream)
 {
-	banner();
-	printf("disco - network utility for host discovery and port enumeration\n"
-		   "author: pilsnerfrajz\n\n"
-		   "usage: disco target [-h] [-p port(s)] [-n] [-P] [-a]\n\n"
-		   "options:\n"
-		   "  target          : host to scan (IP address or domain)\n"
-		   "  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
-		   "  -n, --no-check  : skip host discovery\n"
-		   "  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
-		   "  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
-		   "  -h, --help      : display this message\n\n");
+	if (stream == stdout)
+	{
+		banner(stream);
+	}
+	fprintf(stream,
+			"usage: disco target [-h] [-p port(s)] [-n] [-P] [-a]\n\n"
+			"options:\n"
+			"  target          : host to scan (IP address or domain)\n"
+			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
+			"  -n, --no-check  : skip host discovery\n"
+			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
+			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
+			"  -h, --help      : display this message\n\n");
 }
 
 void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_disc, int *force_ping, int *force_arp)
 {
 	/* Reset optind for multiple tests to work properly*/
 	optind = 1;
+	opterr = 0;
 
 	static struct option options[] =
 		{
@@ -78,8 +85,15 @@ void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host
 			{
 				size_t len = strlen(optarg);
 				/* Check if arg is at least one port */
-				if (len > 1)
+				if (len > 0)
 				{
+					int count = 0;
+					if (parse_ports(optarg, &count) == NULL)
+					{
+						fprintf(stderr, "Error: Invalid port specification: '-p %s'\n", optarg);
+						usage(stderr);
+						return;
+					}
 					/* Add one for null terminator */
 					*ports = malloc(len + 1);
 					if (*ports)
@@ -99,12 +113,18 @@ void parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host
 			*force_arp = 1;
 			break;
 		case 'h':
-			usage();
+			usage(stdout);
+			return;
+		case '?':
+			if (optopt != 0)
+			{
+				fprintf(stderr, "Error: Unknown option '-%c'\n", optopt);
+			}
+			usage(stderr);
 			return;
 		default:
-			// TODO invalid option print
-			printf("Invalid option: %c\n", option);
-			usage();
+			fprintf(stderr, "Error: Unexpected getopt return value: %c\n", option);
+			usage(stderr);
 			return;
 		}
 	}
