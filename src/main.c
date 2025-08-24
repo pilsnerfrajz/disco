@@ -7,7 +7,7 @@
 
 #define RETRIES 3
 
-int default_scan(char *target, char *ports)
+int default_scan(char *target)
 {
 	int rv = arp(target);
 	if (rv == SUCCESS)
@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 		usage(stdout);
 		return CLI_PARSE;
 	}
+
 	char *ports = NULL;
 	char *target = NULL;
 	int no_host_disc = 0;
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
 
 	if (!no_host_disc && !force_arp && !force_ping)
 	{
-		rv = default_scan(target, ports);
+		rv = default_scan(target);
 		if (rv != 0)
 		{
 			return rv;
@@ -98,8 +99,10 @@ int main(int argc, char *argv[])
 		if (rv != SUCCESS)
 		{
 			print_err("TCP SYN", rv);
+			free(port_arr);
 			return rv;
 		}
+		free(port_arr);
 	}
 
 	return 0;
