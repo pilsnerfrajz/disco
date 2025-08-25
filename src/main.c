@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+
 #include "../include/error.h"
 #include "../include/cli.h"
 #include "../include/arp.h"
@@ -55,7 +57,7 @@ int main(int argc, char *argv[])
 		if (rv != SUCCESS)
 		{
 			print_err("ARP", rv);
-			return rv;
+			goto cleanup;
 		}
 		printf("Host %s is up!\n", target);
 	}
@@ -67,7 +69,7 @@ int main(int argc, char *argv[])
 		if (rv != SUCCESS)
 		{
 			print_err("Ping", rv);
-			return rv;
+			goto cleanup;
 		}
 		printf("Host %s is up!\n", target);
 	}
@@ -82,7 +84,7 @@ int main(int argc, char *argv[])
 		rv = default_scan(target);
 		if (rv != 0)
 		{
-			return rv;
+			goto cleanup;
 		}
 	}
 
@@ -93,17 +95,28 @@ int main(int argc, char *argv[])
 		if (port_arr == NULL)
 		{
 			fprintf(stderr, "ERROR: an error occurred while parsing ports\n");
-			return CLI_PARSE;
+			rv = CLI_PARSE;
+			goto cleanup;
 		}
 		rv = port_scan(target, port_arr, port_count, 1 /*Print state*/, NULL /*Return Array of Results*/);
 		if (rv != SUCCESS)
 		{
 			print_err("TCP SYN", rv);
 			free(port_arr);
-			return rv;
+			goto cleanup;
 		}
 		free(port_arr);
 	}
 
-	return 0;
+cleanup:
+	if (target != NULL)
+	{
+		free(target);
+	}
+	if (ports != NULL)
+	{
+		free(ports);
+	}
+
+	return rv;
 }
