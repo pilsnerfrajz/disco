@@ -25,14 +25,14 @@ void usage(FILE *stream)
 		banner(stream);
 	}
 	fprintf(stream,
-			"usage: disco target [-h] [-p port(s)] [-n] [-P] [-a]\n\n"
+			"usage: disco target [-h] [-p port(s)] [-n] [-P] [-a]\n"
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
 			"  -n, --no-check  : skip host discovery\n"
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
-			"  -h, --help      : display this message\n\n");
+			"  -h, --help      : display this message\n");
 }
 
 int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_disc, int *force_ping, int *force_arp)
@@ -120,7 +120,14 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 		case '?':
 			if (optopt != 0)
 			{
-				fprintf(stderr, "ERROR: unknown option '-%c'\n\n", optopt);
+				if (optopt == 'p')
+				{
+					fprintf(stderr, "ERROR: missing port(s) for '-p'\n\n");
+				}
+				else
+				{
+					fprintf(stderr, "ERROR: unknown option '-%c'\n\n", optopt);
+				}
 			}
 			usage(stderr);
 			return -1;
