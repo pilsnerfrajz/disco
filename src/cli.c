@@ -88,12 +88,14 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 				if (len > 0)
 				{
 					int count = 0;
-					if (parse_ports(optarg, &count) == NULL)
+					unsigned short *temp_ports = parse_ports(optarg, &count);
+					if (temp_ports == NULL)
 					{
 						fprintf(stderr, "ERROR: invalid port specification: '-p %s'\n\n", optarg);
 						usage(stderr);
-						return -1 - 1;
+						return -1;
 					}
+					free(temp_ports);
 					/* Add one for null terminator */
 					*ports = malloc(len + 1);
 					if (*ports)
@@ -123,7 +125,7 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 			usage(stderr);
 			return -1;
 		default:
-			fprintf(stderr, "ERROR: unexpected getopt return -1 value: %c\n\n", option);
+			fprintf(stderr, "ERROR: unexpected argument: %c\n\n", option);
 			usage(stderr);
 			return -1;
 		}
