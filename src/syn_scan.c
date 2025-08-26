@@ -36,9 +36,6 @@
 #define ETH_TYPE_IPV6 0x86DD
 #define IP_PROTO_TCP 0x06
 #define REALLOC_SIZE 1024
-#define UNKNOWN 0
-#define OPEN 1
-#define CLOSED 2
 #define CHECKSUM_LEN_IPV4 (sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv4_t))
 #define CHECKSUM_LEN_IPV6 (sizeof(tcp_header_t) + sizeof(tcp_pseudo_ipv6_t))
 
@@ -840,7 +837,11 @@ static int send_syn(int sfd,
 	return 0;
 }
 
-int port_scan(char *address, unsigned short *port_arr, int port_count, short *is_open_port, short **result_arr)
+int port_scan(char *address,
+			  unsigned short *port_arr,
+			  int port_count,
+			  short *is_open_port,
+			  unsigned short **result_arr)
 {
 	if (test_print)
 	{
@@ -1078,10 +1079,11 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, short *is
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)
 	{
-		*result_arr = malloc(65536 * sizeof(short));
+		*result_arr = malloc(65536 * sizeof(unsigned short));
 		if (*result_arr != NULL)
 		{
-			memcpy(*result_arr, (short *)c_data.port_status, 65536 * sizeof(short));
+			memcpy(*result_arr, (unsigned short *)c_data.port_status,
+				   65536 * sizeof(unsigned short));
 		}
 	}
 
