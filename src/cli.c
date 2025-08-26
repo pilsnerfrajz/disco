@@ -29,7 +29,7 @@ void usage(FILE *stream)
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
-			"  -n, --no-check  : skip host discovery\n"
+			"  -n, --no-check  : skip host status check\n"
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
 			"  -h, --help      : display this message\n");
