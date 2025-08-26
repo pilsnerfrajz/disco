@@ -14,17 +14,17 @@ int default_scan(char *target)
 	int rv = arp(target);
 	if (rv == SUCCESS)
 	{
-		printf("Host %s is up!\n", target);
+		printf("[+] Host %s is up!\n", target);
 	}
 	else
 	{
 		rv = ping(target, RETRIES);
 		if (rv != SUCCESS)
 		{
-			print_err("ARP/ping", rv);
+			print_err("[-] ping", rv);
 			return NO_RESPONSE;
 		}
-		printf("Host %s is up!\n", target);
+		printf("[+] Host %s is up!\n", target);
 	}
 
 	return 0;
@@ -47,36 +47,37 @@ int main(int argc, char *argv[])
 
 	if (parse_cli(argc, argv, &target, &ports, &no_host_disc, &force_ping, &force_arp) != 0)
 	{
+		print_err("[-] parse_cli", CLI_PARSE);
 		return CLI_PARSE;
 	}
 
 	if (force_arp)
 	{
-		printf("Forcing ARP host discovery (skipping ICMP fallback)...\n");
+		printf("[!] Forcing ARP host discovery (skipping ICMP fallback)\n");
 		rv = arp(target);
 		if (rv != SUCCESS)
 		{
-			print_err("ARP", rv);
+			print_err("[-] arp", rv);
 			goto cleanup;
 		}
-		printf("Host %s is up!\n", target);
+		printf("[+] Host %s is up!\n", target);
 	}
 
 	if (force_ping)
 	{
-		printf("Forcing ICMP host discovery (skipping ARP attempt)...\n");
+		printf("[!] Forcing ICMP host discovery (skipping ARP attempt)\n");
 		rv = ping(target, RETRIES);
 		if (rv != SUCCESS)
 		{
-			print_err("Ping", rv);
+			print_err("[-] ping", rv);
 			goto cleanup;
 		}
-		printf("Host %s is up!\n", target);
+		printf("[+] Host %s is up!\n", target);
 	}
 
 	if (ports == NULL && no_host_disc && !force_arp && !force_ping)
 	{
-		fprintf(stderr, "WARNING: Doing nothing. Use '-p' with the '-n' option!\n\n");
+		fprintf(stderr, "[!] Doing nothing. Use '-p' with the '-n' option!\n\n");
 		usage(stderr);
 		rv = CLI_PARSE;
 		goto cleanup;
@@ -84,7 +85,7 @@ int main(int argc, char *argv[])
 
 	if (no_host_disc)
 	{
-		printf("Skipping host status check...\n");
+		printf("[!] Skipping host status check\n");
 	}
 
 	if (!no_host_disc && !force_arp && !force_ping)
@@ -102,19 +103,23 @@ int main(int argc, char *argv[])
 		unsigned short *port_arr = parse_ports(ports, &port_count);
 		if (port_arr == NULL)
 		{
-			fprintf(stderr, "ERROR: an error occurred while parsing ports\n");
+			fprintf(stderr, "[-] parse_ports: An error occurred while parsing ports\n");
 			rv = CLI_PARSE;
 			goto cleanup;
 		}
+		printf("[*] Scanning %d port(s) on %s...\n", port_count, target);
 		rv = port_scan(target, port_arr, port_count, 1 /*Print state*/, NULL /*Return Array of Results*/);
 		if (rv != SUCCESS)
 		{
-			print_err("TCP SYN", rv);
+			print_err("[-] port_scan", rv);
 			free(port_arr);
 			goto cleanup;
 		}
 		free(port_arr);
 	}
+
+	// TODO Write port status. Open, closed, unknown?
+	// TODO Write results to file
 
 cleanup:
 	if (target != NULL)
