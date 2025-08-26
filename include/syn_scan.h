@@ -38,4 +38,11 @@ int port_scan(char *address,
  */
 unsigned short *parse_ports(const char *port_str, int *port_count);
 
+/**
+ * @brief Controls whether syn_scan should print results during testing.
+ *
+ * @param enable 1 to enable output, 0 to suppress output
+ */
+void set_test_print_flag(int enable);
+
 #endif

@@ -10,6 +10,8 @@ void syn_scan_test(void)
 {
 	printf("-- SYN SCAN TESTS --\n");
 
+	set_test_print_flag(1);
+
 	/* DEBUG: sudo lsof -PiTCP -sTCP:LISTEN */
 
 	unsigned short parse_test_arr[10] = {1, 2, 3, 4, 5, 6, 10, 11, 4444, 65535};

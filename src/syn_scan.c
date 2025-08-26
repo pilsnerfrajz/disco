@@ -53,6 +53,9 @@
  */
 #define TCP_IPv6_BUF 100
 
+/* Global flag to enable output during testing */
+static int test_print = 0;
+
 struct src_info
 {
 	char *ip;
@@ -330,6 +333,11 @@ static int get_bind_addr(struct sockaddr **bind_ptr,
 		*bind_ptr_len = sizeof(struct sockaddr_in6);
 	}
 	return 0;
+}
+
+void set_test_print_flag(int enable)
+{
+	test_print = enable;
 }
 
 unsigned short *parse_ports(const char *port_str, int *port_count)
@@ -832,7 +840,10 @@ static int send_syn(int sfd,
 
 int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state, short **result_arr)
 {
-	printf("┌ Scanning %d ports on %s...\n", port_count, address);
+	if (test_print)
+	{
+		printf("┌ Scanning %d ports on %s...\n", port_count, address);
+	}
 
 	struct addrinfo *dst = get_dst_addr_struct(address, SOCK_RAW);
 	if (dst == NULL)
@@ -1043,26 +1054,21 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		return UNKNOWN_FAMILY;
 	}
 
-	if (print_state)
+	/* Only used during testing for formatting purposes */
+	if (test_print)
 	{
-		// TODO Remove pipe operator
+		int open_count = 0;
 		printf("| PORT\tSTATE\n");
 
 		for (int p_index = 0; p_index < port_count; p_index++)
 		{
-			if (print_state)
+			if (c_data.port_status[port_arr[p_index]] == OPEN)
 			{
-				if (c_data.port_status[port_arr[p_index]] == OPEN)
-				{
-					printf("│ %d\topen\n", port_arr[p_index]);
-				}
-				else if (c_data.port_status[port_arr[p_index]] == CLOSED)
-				{
-					// printf("%d\tclosed\n", port_arr[p_index]);
-				}
-				// TODO Count unknown ports and print res
+				printf("│ %d\topen\n", port_arr[p_index]);
+				open_count++;
 			}
 		}
+		printf("│ %d ports are closed\n", port_count - open_count);
 	}
 
 	/* Save results to supplied result_arr for use in caller */
