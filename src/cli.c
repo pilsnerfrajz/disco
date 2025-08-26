@@ -91,7 +91,7 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 					unsigned short *temp_ports = parse_ports(optarg, &count);
 					if (temp_ports == NULL)
 					{
-						fprintf(stderr, "ERROR: invalid port specification: '-p %s'\n\n", optarg);
+						fprintf(stderr, "[-] Invalid port specification: '-p %s'\n\n", optarg);
 						usage(stderr);
 						return -1;
 					}
@@ -122,17 +122,17 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 			{
 				if (optopt == 'p')
 				{
-					fprintf(stderr, "ERROR: missing port(s) for '-p'\n\n");
+					fprintf(stderr, "[-] Missing port(s) for '-p'\n\n");
 				}
 				else
 				{
-					fprintf(stderr, "ERROR: unknown option '-%c'\n\n", optopt);
+					fprintf(stderr, "[-] Unknown option '-%c'\n\n", optopt);
 				}
 			}
 			usage(stderr);
 			return -1;
 		default:
-			fprintf(stderr, "ERROR: unexpected argument: %c\n\n", option);
+			fprintf(stderr, "[-] Unexpected argument: %c\n\n", option);
 			usage(stderr);
 			return -1;
 		}
@@ -165,14 +165,14 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 
 	if (*force_arp + *force_ping + *no_host_disc > 1)
 	{
-		fprintf(stderr, "ERROR: conflicting options. Only one of -P, -a and -n can be used at once\n\n");
+		fprintf(stderr, "[-] Conflicting options. Only one of -P, -a and -n can be used at once\n\n");
 		usage(stderr);
 		return -1;
 	}
 
 	if (*target == NULL)
 	{
-		fprintf(stderr, "ERROR: no valid target specified\n\n");
+		fprintf(stderr, "[-] No valid target specified\n\n");
 		usage(stderr);
 		return -1;
 	}
