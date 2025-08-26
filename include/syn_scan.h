@@ -1,6 +1,10 @@
 #ifndef SYN_SCAN_H
 #define SYN_SCAN_H
 
+#define UNKNOWN 0
+#define OPEN 1
+#define CLOSED 2
+
 /**
  * @brief Performs a SYN scan on the specified ports of a target address or
  * domain. If `print_state` is true, the open ports will be printed. An array
@@ -21,7 +25,7 @@ int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int count,
 			  short *is_open_port,
-			  short **result_arr);
+			  unsigned short **result_arr);
 
 /**
  * @brief Parses a string with a format similar to `"1,2,3-5,6"`, and returns it
