@@ -9,7 +9,7 @@
 
 #define RETRIES 3
 
-int default_scan(char *target)
+static int default_scan(char *target)
 {
 	int rv = arp(target);
 	if (rv == SUCCESS)
@@ -18,6 +18,7 @@ int default_scan(char *target)
 	}
 	else
 	{
+		printf("[!] ARP failed, falling back to ICMP\n");
 		rv = ping(target, RETRIES);
 		if (rv != SUCCESS)
 		{
@@ -30,6 +31,40 @@ int default_scan(char *target)
 	return 0;
 }
 
+static void print_open_ports(unsigned short *res_arr,
+							 unsigned short *port_arr,
+							 int port_count)
+{
+	if (res_arr == NULL || port_arr == NULL)
+	{
+		fprintf(stderr, "[-] print_open_ports: An error occurred while printing open ports\n");
+		return;
+	}
+
+	printf("\nPORT\tSTATE\n");
+	int open_count = 0;
+	for (int i = 0; i < port_count; i++)
+	{
+		unsigned short port = port_arr[i];
+		if (res_arr[port] == OPEN)
+		{
+			printf("%d\topen\n", port);
+			open_count++;
+		}
+	}
+
+	if (open_count != port_count)
+	{
+		printf("\n[+] Found %d open port(s), %d closed port(s) not shown\n",
+			   open_count,
+			   port_count - open_count);
+	}
+	else if (open_count == port_count)
+	{
+		printf("\n[+] All scanned ports are open!\n");
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc == 1)
@@ -40,6 +75,10 @@ int main(int argc, char *argv[])
 
 	char *ports = NULL;
 	char *target = NULL;
+
+	unsigned short *port_arr = NULL;
+	unsigned short *res_arr = NULL;
+
 	int no_host_disc = 0;
 	int force_ping = 0;
 	int force_arp = 0;
@@ -47,7 +86,6 @@ int main(int argc, char *argv[])
 
 	if (parse_cli(argc, argv, &target, &ports, &no_host_disc, &force_ping, &force_arp) != 0)
 	{
-		print_err("[-] parse_cli", CLI_PARSE);
 		return CLI_PARSE;
 	}
 
@@ -100,23 +138,32 @@ int main(int argc, char *argv[])
 	if (ports != NULL)
 	{
 		int port_count = 0;
-		unsigned short *port_arr = parse_ports(ports, &port_count);
+		port_arr = parse_ports(ports, &port_count);
 		if (port_arr == NULL)
 		{
 			fprintf(stderr, "[-] parse_ports: An error occurred while parsing ports\n");
 			rv = CLI_PARSE;
 			goto cleanup;
 		}
+
 		printf("[*] Scanning %d port(s) on %s...\n", port_count, target);
 		short is_open_port = 0;
-		rv = port_scan(target, port_arr, port_count, &is_open_port, NULL /*Return Array of Results*/);
+
+		rv = port_scan(target, port_arr, port_count, &is_open_port, &res_arr);
 		if (rv != SUCCESS)
 		{
 			print_err("[-] port_scan", rv);
-			free(port_arr);
 			goto cleanup;
 		}
-		free(port_arr);
+
+		if (is_open_port)
+		{
+			print_open_ports(res_arr, port_arr, port_count);
+		}
+		else
+		{
+			printf("[!] No open port(s) found\n");
+		}
 	}
 
 	// TODO Write port status. Open, closed, unknown?
@@ -130,6 +177,14 @@ cleanup:
 	if (ports != NULL)
 	{
 		free(ports);
+	}
+	if (port_arr != NULL)
+	{
+		free(port_arr);
+	}
+	if (res_arr != NULL)
+	{
+		free(res_arr);
 	}
 
 	return rv;
