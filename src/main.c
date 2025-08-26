@@ -108,7 +108,8 @@ int main(int argc, char *argv[])
 			goto cleanup;
 		}
 		printf("[*] Scanning %d port(s) on %s...\n", port_count, target);
-		rv = port_scan(target, port_arr, port_count, 1 /*Print state*/, NULL /*Return Array of Results*/);
+		short is_open_port = 0;
+		rv = port_scan(target, port_arr, port_count, &is_open_port, NULL /*Return Array of Results*/);
 		if (rv != SUCCESS)
 		{
 			print_err("[-] port_scan", rv);

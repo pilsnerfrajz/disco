@@ -66,6 +66,7 @@ struct src_info
 struct callback_data
 {
 	short loopback_flag;
+	short any_open; /* Flag if any open port is found */
 	volatile short port_status[65536];
 };
 
@@ -167,6 +168,7 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	if (tcp_hdr->flags == SYN_ACK)
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
+		c_data->any_open = 1;
 	}
 	else if (tcp_hdr->flags & RST)
 	{
@@ -838,7 +840,7 @@ static int send_syn(int sfd,
 	return 0;
 }
 
-int port_scan(char *address, unsigned short *port_arr, int port_count, int print_state, short **result_arr)
+int port_scan(char *address, unsigned short *port_arr, int port_count, short *is_open_port, short **result_arr)
 {
 	if (test_print)
 	{
@@ -1070,6 +1072,8 @@ int port_scan(char *address, unsigned short *port_arr, int port_count, int print
 		}
 		printf("│ %d ports are closed\n", port_count - open_count);
 	}
+
+	*is_open_port = c_data.any_open;
 
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)
