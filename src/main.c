@@ -95,7 +95,8 @@ int main(int argc, char *argv[])
 		rv = arp(target);
 		if (rv != SUCCESS)
 		{
-			print_err("[-] arp", rv);
+			fprintf(stderr, "[-] ARP failed, try with '-P' instead\n\n");
+			usage(stderr);
 			goto cleanup;
 		}
 		printf("[+] Host %s is up!\n", target);
@@ -155,6 +156,8 @@ int main(int argc, char *argv[])
 			print_err("[-] port_scan", rv);
 			goto cleanup;
 		}
+
+		printf("[+] Port scan results:\n");
 
 		if (is_open_port)
 		{
