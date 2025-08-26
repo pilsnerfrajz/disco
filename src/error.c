@@ -34,6 +34,6 @@ const char *const error_strings[] = {
 	"Error creating thread",
 	"An error occurred while getting source address",
 	"Address family not supported",
-	"Could not parse command line arguments"};
+	"Error during parse of command line arguments"};
 
 static_assert(ENUMS == COUNT, "Enums and err strings are not equal.\n");
