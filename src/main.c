@@ -74,9 +74,17 @@ int main(int argc, char *argv[])
 		printf("Host %s is up!\n", target);
 	}
 
+	if (ports == NULL && no_host_disc && !force_arp && !force_ping)
+	{
+		fprintf(stderr, "WARNING: Doing nothing. Use '-p' with the '-n' option!\n\n");
+		usage(stderr);
+		rv = CLI_PARSE;
+		goto cleanup;
+	}
+
 	if (no_host_disc)
 	{
-		printf("Skipping host discovery...\n");
+		printf("Skipping host status check...\n");
 	}
 
 	if (!no_host_disc && !force_arp && !force_ping)
