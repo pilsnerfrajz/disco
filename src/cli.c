@@ -29,13 +29,15 @@ void usage(FILE *stream)
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
+			"  -o, --open      : show open ports only\n"
 			"  -n, --no-check  : skip host status check\n"
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
 			"  -h, --help      : display this message\n");
 }
 
-int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_disc, int *force_ping, int *force_arp)
+int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_open,
+			  int *no_host_disc, int *force_ping, int *force_arp)
 {
 	/* Reset optind for multiple tests to work properly*/
 	optind = 1;
@@ -73,6 +75,12 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 				NULL,
 				'a',
 			},
+			{
+				"open",
+				no_argument,
+				NULL,
+				'o',
+			},
 			{0, 0, 0, 0}};
 
 	int option;
@@ -104,6 +112,9 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *no_host_
 					}
 				}
 			}
+			break;
+		case 'o':
+			*show_open = 1;
 			break;
 		case 'n':
 			*no_host_disc = 1;

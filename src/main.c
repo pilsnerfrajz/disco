@@ -90,9 +90,10 @@ int main(int argc, char *argv[])
 	int no_host_disc = 0;
 	int force_ping = 0;
 	int force_arp = 0;
+	int show_open = 0;
 	int rv = 0;
 
-	if (parse_cli(argc, argv, &target, &ports, &no_host_disc, &force_ping, &force_arp) != 0)
+	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp) != 0)
 	{
 		return CLI_PARSE;
 	}
