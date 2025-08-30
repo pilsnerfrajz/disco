@@ -29,7 +29,7 @@ void usage(FILE *stream)
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
-			"  -o, --open      : show open ports only\n"
+			"  -o, --open      : show open ports only (default: open or unknown)\n"
 			"  -n, --no-check  : skip host status check\n"
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
@@ -84,7 +84,7 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 			{0, 0, 0, 0}};
 
 	int option;
-	while ((option = getopt_long(argc, argv, "p:nhPa", options, NULL)) != -1)
+	while ((option = getopt_long(argc, argv, "p:nhPao", options, NULL)) != -1)
 	{
 		switch (option)
 		{
