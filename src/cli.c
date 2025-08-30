@@ -25,7 +25,7 @@ void usage(FILE *stream)
 		banner(stream);
 	}
 	fprintf(stream,
-			"usage: disco target [-h] [-p port(s)] [-n] [-P] [-a]\n"
+			"usage: disco target [-h] [-p port(s)] [-o] [-n] [-P] [-a]\n"
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
