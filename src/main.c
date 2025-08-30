@@ -33,7 +33,8 @@ static int default_scan(char *target)
 
 static void print_open_ports(unsigned short *res_arr,
 							 unsigned short *port_arr,
-							 int port_count)
+							 int port_count,
+							 int show_open)
 {
 	if (res_arr == NULL || port_arr == NULL)
 	{
@@ -55,17 +56,30 @@ static void print_open_ports(unsigned short *res_arr,
 		}
 		else if (res_arr[port] == UNKNOWN)
 		{
-			printf("%d\tunknown\n", port);
+			if (!show_open)
+			{
+				printf("%d\tunknown\n", port);
+			}
 			unknown_count++;
 		}
 	}
 
 	if (open_count != port_count)
 	{
-		printf("\n[+] Found %d open port(s), %d unknown port(s), %d closed port(s) not shown\n",
-			   open_count,
-			   unknown_count,
-			   port_count - open_count - unknown_count);
+		if (!show_open)
+		{
+			printf("\n[+] Found %d open port(s), %d unknown port(s), %d closed port(s) not shown\n",
+				   open_count,
+				   unknown_count,
+				   port_count - open_count - unknown_count);
+		}
+		else
+		{
+			printf("\n[+] Found %d open port(s), %d unknown and %d closed port(s) not shown\n",
+				   open_count,
+				   unknown_count,
+				   port_count - open_count - unknown_count);
+		}
 	}
 	else if (open_count == port_count)
 	{
@@ -170,7 +184,7 @@ int main(int argc, char *argv[])
 
 		if (is_open_port)
 		{
-			print_open_ports(res_arr, port_arr, port_count);
+			print_open_ports(res_arr, port_arr, port_count, show_open);
 		}
 		else
 		{
