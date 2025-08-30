@@ -42,7 +42,9 @@ static void print_open_ports(unsigned short *res_arr,
 	}
 
 	printf("\nPORT\tSTATE\n");
+
 	int open_count = 0;
+	int unknown_count = 0;
 	for (int i = 0; i < port_count; i++)
 	{
 		unsigned short port = port_arr[i];
@@ -51,13 +53,19 @@ static void print_open_ports(unsigned short *res_arr,
 			printf("%d\topen\n", port);
 			open_count++;
 		}
+		else if (res_arr[port] == UNKNOWN)
+		{
+			printf("%d\tunknown\n", port);
+			unknown_count++;
+		}
 	}
 
 	if (open_count != port_count)
 	{
-		printf("\n[+] Found %d open port(s), %d closed port(s) not shown\n",
+		printf("\n[+] Found %d open port(s), %d unknown port(s), %d closed port(s) not shown\n",
 			   open_count,
-			   port_count - open_count);
+			   unknown_count,
+			   port_count - open_count - unknown_count);
 	}
 	else if (open_count == port_count)
 	{
