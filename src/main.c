@@ -192,7 +192,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// TODO Write port status. Open, closed, unknown?
 	// TODO Write results to file
 
 cleanup:
