@@ -31,20 +31,21 @@ typedef enum err
 extern const char *const error_strings[];
 
 /**
- * @brief Prints a descriptive error message to `stderr` based on an error code.
+ * @brief Prints a descriptive error message to `stream` based on an error code.
  * Example usage:
  *
  * Example usage:
  * @code
  * int rv = ping("example.com");
  * if (rv != SUCCESS) {
- *     print_err("ping", rv);
+ *     print_err(stderr, "ping", rv);
  * }
  * @endcode
  *
+ * @param stream The output stream.
  * @param function The function.
  * @param err_val The returned value from the function.
  */
-void print_err(char *function, int err_val);
+void print_err(FILE *stream, char *function, int err_val);
 
 #endif

@@ -3,15 +3,15 @@
 
 #define ENUMS (sizeof(error_strings) / sizeof(error_strings[0]))
 
-void print_err(char *function, int err_val)
+void print_err(FILE *stream, char *function, int err_val)
 {
 	/* Don't care */
 	if (err_val == -1)
 	{
-		fprintf(stderr, "%s\n", function);
+		fprintf(stream, "%s\n", function);
 		return;
 	}
-	fprintf(stderr, "%s: %s\n", function, error_strings[err_val]);
+	fprintf(stream, "%s: %s\n", function, error_strings[err_val]);
 }
 
 const char *const error_strings[] = {
