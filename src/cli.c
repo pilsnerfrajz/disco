@@ -25,7 +25,7 @@ void usage(FILE *stream)
 		banner(stream);
 	}
 	fprintf(stream,
-			"usage: disco target [-h] [-p port(s)] [-o] [-n] [-P] [-a]\n"
+			"usage: disco target [-h] [-p port(s)] [-o] [-n] [-P] [-a] [-w]\n"
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
@@ -33,11 +33,12 @@ void usage(FILE *stream)
 			"  -n, --no-check  : skip host status check\n"
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
+			"  -w, --write     : write results to a file\n"
 			"  -h, --help      : display this message\n");
 }
 
 int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_open,
-			  int *no_host_disc, int *force_ping, int *force_arp)
+			  int *no_host_disc, int *force_ping, int *force_arp, char **write_file)
 {
 	/* Reset optind for multiple tests to work properly*/
 	optind = 1;
@@ -81,10 +82,16 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 				NULL,
 				'o',
 			},
+			{
+				"write",
+				required_argument,
+				NULL,
+				'w',
+			},
 			{0, 0, 0, 0}};
 
 	int option;
-	while ((option = getopt_long(argc, argv, "p:nhPao", options, NULL)) != -1)
+	while ((option = getopt_long(argc, argv, "p:nhPaow:", options, NULL)) != -1)
 	{
 		switch (option)
 		{
@@ -113,6 +120,20 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 				}
 			}
 			break;
+		case 'w':
+			if (optarg != NULL && write_file != NULL)
+			{
+				size_t len = strlen(optarg);
+				if (len > 0)
+				{
+					*write_file = malloc(len + 1);
+					if (*write_file)
+					{
+						strcpy(*write_file, optarg);
+					}
+				}
+			}
+			break;
 		case 'o':
 			*show_open = 1;
 			break;
@@ -134,6 +155,10 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 				if (optopt == 'p')
 				{
 					fprintf(stderr, "[-] Missing port(s) for '-p'\n\n");
+				}
+				else if (optopt == 'w')
+				{
+					fprintf(stderr, "[-] Missing file name for '-w'\n\n");
 				}
 				else
 				{

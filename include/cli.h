@@ -9,6 +9,7 @@ int parse_cli(int argc,
 			  int *show_open,
 			  int *no_host_disc,
 			  int *force_ping,
-			  int *force_arp);
+			  int *force_arp,
+			  char **write_file);
 
 #endif

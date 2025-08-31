@@ -97,6 +97,7 @@ int main(int argc, char *argv[])
 
 	char *ports = NULL;
 	char *target = NULL;
+	char *write_file = NULL;
 
 	unsigned short *port_arr = NULL;
 	unsigned short *res_arr = NULL;
@@ -107,7 +108,7 @@ int main(int argc, char *argv[])
 	int show_open = 0;
 	int rv = 0;
 
-	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp) != 0)
+	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &write_file) != 0)
 	{
 		return CLI_PARSE;
 	}
@@ -193,6 +194,7 @@ int main(int argc, char *argv[])
 	}
 
 	// TODO Write results to file
+	printf("[*] Writing results to file: %s\n", write_file);
 
 cleanup:
 	if (target != NULL)
@@ -210,6 +212,10 @@ cleanup:
 	if (res_arr != NULL)
 	{
 		free(res_arr);
+	}
+	if (write_file != NULL)
+	{
+		free(write_file);
 	}
 
 	return rv;
