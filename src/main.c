@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 
 #include "../include/error.h"
 #include "../include/cli.h"
@@ -8,24 +10,38 @@
 #include "../include/syn_scan.h"
 
 #define RETRIES 3
+#define MSG_BUF_SIZE 2048
 
-static int default_scan(char *target)
+static int print_wrapper(FILE *stream, FILE *fp, const char *msg)
+{
+	if (stream == NULL)
+	{
+		return -1;
+	}
+	fprintf(stream, "%s", msg);
+	if (fp != NULL)
+	{
+		fprintf(fp, "%s", msg);
+	}
+	return 0;
+}
+
+static int default_scan(FILE *fp, char *target)
 {
 	int rv = arp(target);
 	if (rv == SUCCESS)
 	{
-		printf("[+] Host %s is up!\n", target);
+		return 0;
 	}
-	else
+
+	char *msg = "[!] ARP failed, falling back to ICMP\n";
+	print_wrapper(stdout, fp, msg);
+	rv = ping(target, RETRIES);
+	if (rv != SUCCESS)
 	{
-		printf("[!] ARP failed, falling back to ICMP\n");
-		rv = ping(target, RETRIES);
-		if (rv != SUCCESS)
-		{
-			print_err("[-] ping", rv);
-			return NO_RESPONSE;
-		}
-		printf("[+] Host %s is up!\n", target);
+		print_err(stderr, "[-] ping", rv);
+		print_err(fp, "[-] ping", rv);
+		return NO_RESPONSE;
 	}
 
 	return 0;
@@ -34,15 +50,20 @@ static int default_scan(char *target)
 static void print_open_ports(unsigned short *res_arr,
 							 unsigned short *port_arr,
 							 int port_count,
-							 int show_open)
+							 int show_open,
+							 FILE *fp)
 {
+	char *m = NULL;
+	char msg_buf[MSG_BUF_SIZE];
 	if (res_arr == NULL || port_arr == NULL)
 	{
-		fprintf(stderr, "[-] print_open_ports: An error occurred while printing open ports\n");
+		m = "[-] print_open_ports: An error occurred while printing open ports\n";
+		print_wrapper(stderr, fp, m);
 		return;
 	}
 
-	printf("\nPORT\tSTATE\n");
+	m = "\nPORT\tSTATE\n";
+	print_wrapper(stdout, fp, m);
 
 	int open_count = 0;
 	int unknown_count = 0;
@@ -51,14 +72,18 @@ static void print_open_ports(unsigned short *res_arr,
 		unsigned short port = port_arr[i];
 		if (res_arr[port] == OPEN)
 		{
-			printf("%d\topen\n", port);
+			snprintf(msg_buf, MSG_BUF_SIZE, "%d\topen\n", port);
+			print_wrapper(stdout, fp, msg_buf);
+			memset(msg_buf, 0, MSG_BUF_SIZE);
 			open_count++;
 		}
 		else if (res_arr[port] == UNKNOWN)
 		{
 			if (!show_open)
 			{
-				printf("%d\tunknown\n", port);
+				snprintf(msg_buf, MSG_BUF_SIZE, "%d\tunknown\n", port);
+				print_wrapper(stdout, fp, msg_buf);
+				memset(msg_buf, 0, MSG_BUF_SIZE);
 			}
 			unknown_count++;
 		}
@@ -68,22 +93,27 @@ static void print_open_ports(unsigned short *res_arr,
 	{
 		if (!show_open)
 		{
-			printf("\n[+] Found %d open port(s), %d unknown port(s), %d closed port(s) not shown\n",
-				   open_count,
-				   unknown_count,
-				   port_count - open_count - unknown_count);
+			snprintf(msg_buf, MSG_BUF_SIZE, "\n[+] Found %d open port(s), %d unknown port(s), %d closed port(s) not shown\n",
+					 open_count,
+					 unknown_count,
+					 port_count - open_count - unknown_count);
+			print_wrapper(stdout, fp, msg_buf);
+			memset(msg_buf, 0, MSG_BUF_SIZE);
 		}
 		else
 		{
-			printf("\n[+] Found %d open port(s), %d unknown and %d closed port(s) not shown\n",
-				   open_count,
-				   unknown_count,
-				   port_count - open_count - unknown_count);
+			snprintf(msg_buf, MSG_BUF_SIZE, "\n[+] Found %d open port(s), %d unknown and %d closed port(s) not shown\n",
+					 open_count,
+					 unknown_count,
+					 port_count - open_count - unknown_count);
+			print_wrapper(stdout, fp, msg_buf);
+			memset(msg_buf, 0, MSG_BUF_SIZE);
 		}
 	}
 	else if (open_count == port_count)
 	{
-		printf("\n[+] All scanned ports are open!\n");
+		m = "\n All scanned ports are open!\n";
+		print_wrapper(stdout, fp, m);
 	}
 }
 
@@ -95,9 +125,13 @@ int main(int argc, char *argv[])
 		return CLI_PARSE;
 	}
 
+	FILE *fp = NULL;
+
 	char *ports = NULL;
 	char *target = NULL;
 	char *write_file = NULL;
+	char *msg = NULL;
+	char msg_buf[MSG_BUF_SIZE];
 
 	unsigned short *port_arr = NULL;
 	unsigned short *res_arr = NULL;
@@ -106,6 +140,7 @@ int main(int argc, char *argv[])
 	int force_ping = 0;
 	int force_arp = 0;
 	int show_open = 0;
+	int up = 0;
 	int rv = 0;
 
 	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &write_file) != 0)
@@ -113,34 +148,57 @@ int main(int argc, char *argv[])
 		return CLI_PARSE;
 	}
 
-	if (force_arp)
+	if (write_file != NULL)
 	{
-		printf("[!] Forcing ARP host discovery (skipping ICMP fallback)\n");
-		rv = arp(target);
-		if (rv != SUCCESS)
+		fp = fopen(write_file, "w");
+		if (fp == NULL)
 		{
-			fprintf(stderr, "[-] ARP failed, try with '-P' instead\n\n");
+			char *e = strerror(errno);
+			fprintf(stderr, "[-] Failed to open '%s' for writing: %s\n", write_file, e);
 			usage(stderr);
 			goto cleanup;
 		}
-		printf("[+] Host %s is up!\n", target);
+		fprintf(fp, "[+] Command: ");
+		for (int i = 0; i < argc; i++)
+		{
+			fprintf(fp, "%s ", argv[i]);
+		}
+		fprintf(fp, "\n");
+	}
+
+	if (force_arp)
+	{
+		msg = "[!] Forcing ARP host discovery (skipping ICMP fallback)\n";
+		print_wrapper(stdout, fp, msg);
+		rv = arp(target);
+		if (rv != SUCCESS)
+		{
+			msg = "[-] ARP failed, try with '-P' instead\n";
+			print_wrapper(stderr, fp, msg);
+			usage(stderr);
+			goto cleanup;
+		}
+		up = 1;
 	}
 
 	if (force_ping)
 	{
-		printf("[!] Forcing ICMP host discovery (skipping ARP attempt)\n");
+		msg = "[!] Forcing ICMP host discovery (skipping ARP attempt)\n";
+		print_wrapper(stdout, fp, msg);
 		rv = ping(target, RETRIES);
 		if (rv != SUCCESS)
 		{
-			print_err("[-] ping", rv);
+			print_err(stderr, "[-] ping", rv);
+			print_err(fp, "[-] ping", rv);
 			goto cleanup;
 		}
-		printf("[+] Host %s is up!\n", target);
+		up = 1;
 	}
 
 	if (ports == NULL && no_host_disc && !force_arp && !force_ping)
 	{
-		fprintf(stderr, "[!] Doing nothing. Use '-p' with the '-n' option!\n\n");
+		msg = "[!] Doing nothing. Use '-p' with the '-n' option!\n\n";
+		print_wrapper(stderr, fp, msg);
 		usage(stderr);
 		rv = CLI_PARSE;
 		goto cleanup;
@@ -148,16 +206,25 @@ int main(int argc, char *argv[])
 
 	if (no_host_disc)
 	{
-		printf("[!] Skipping host status check\n");
+		msg = "[!] Skipping host status check\n";
+		print_wrapper(stdout, fp, msg);
 	}
 
 	if (!no_host_disc && !force_arp && !force_ping)
 	{
-		rv = default_scan(target);
+		rv = default_scan(fp, target);
 		if (rv != 0)
 		{
 			goto cleanup;
 		}
+		up = 1;
+	}
+
+	if (up)
+	{
+		snprintf(msg_buf, MSG_BUF_SIZE, "[+] Host %s is up!\n", target);
+		print_wrapper(stdout, fp, msg_buf);
+		memset(msg_buf, 0, MSG_BUF_SIZE);
 	}
 
 	if (ports != NULL)
@@ -166,35 +233,42 @@ int main(int argc, char *argv[])
 		port_arr = parse_ports(ports, &port_count);
 		if (port_arr == NULL)
 		{
-			fprintf(stderr, "[-] parse_ports: An error occurred while parsing ports\n");
+			msg = "[-] parse_ports: An error occurred while parsing ports\n";
+			print_wrapper(stderr, fp, msg_buf);
 			rv = CLI_PARSE;
 			goto cleanup;
 		}
 
-		printf("[*] Scanning %d port(s) on %s...\n", port_count, target);
+		snprintf(msg_buf, MSG_BUF_SIZE, "[*] Scanning %d port(s) on %s...\n", port_count, target);
+		print_wrapper(stdout, fp, msg_buf);
+		memset(msg_buf, 0, MSG_BUF_SIZE);
 		short is_open_port = 0;
 
 		rv = port_scan(target, port_arr, port_count, &is_open_port, &res_arr);
 		if (rv != SUCCESS)
 		{
-			print_err("[-] port_scan", rv);
+			print_err(stderr, "[-] port_scan", rv);
 			goto cleanup;
 		}
 
-		printf("[+] Port scan results:\n");
+		msg = "[+] Port scan results:\n";
+		print_wrapper(stdout, fp, msg);
 
 		if (is_open_port)
 		{
-			print_open_ports(res_arr, port_arr, port_count, show_open);
+			print_open_ports(res_arr, port_arr, port_count, show_open, fp);
 		}
 		else
 		{
-			printf("[!] No open port(s) found\n");
+			msg = "[!] No open port(s) found\n";
+			print_wrapper(stdout, fp, msg);
 		}
 	}
 
-	// TODO Write results to file
-	printf("[*] Writing results to file: %s\n", write_file);
+	if (fp != NULL)
+	{
+		fprintf(stdout, "[+] Wrote results to file: %s\n", write_file);
+	}
 
 cleanup:
 	if (target != NULL)
@@ -216,6 +290,10 @@ cleanup:
 	if (write_file != NULL)
 	{
 		free(write_file);
+	}
+	if (fp != NULL)
+	{
+		fclose(fp);
 	}
 
 	return rv;
