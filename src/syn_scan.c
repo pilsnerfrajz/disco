@@ -854,11 +854,12 @@ int port_scan(char *address,
 		return UNKNOWN_HOST;
 	}
 
-	/* Resolve address if domain*/
 	char resolved_address[INET6_ADDRSTRLEN];
 	if (dst->ai_addr->sa_family == AF_INET)
 	{
-		address = inet_ntoa(((struct sockaddr_in *)dst->ai_addr)->sin_addr);
+		inet_ntop(AF_INET, &((struct sockaddr_in *)dst->ai_addr)->sin_addr,
+				  resolved_address, INET_ADDRSTRLEN);
+		address = resolved_address;
 	}
 	else
 	{
