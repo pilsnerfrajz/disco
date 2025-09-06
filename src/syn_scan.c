@@ -529,10 +529,14 @@ static int pcap_handle_setup(pcap_t **h, struct src_info src_info)
 			if (a->addr && a->addr->sa_family == AF_INET)
 			{
 				struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
-				if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
+				char ipv4_str[INET_ADDRSTRLEN];
+				if (inet_ntop(AF_INET, &sin->sin_addr, ipv4_str, INET_ADDRSTRLEN))
 				{
-					if_name = d;
-					break;
+					if (strcmp(ipv4_str, if_ip) == 0)
+					{
+						if_name = d;
+						break;
+					}
 				}
 			}
 			else if (a->addr && a->addr->sa_family == AF_INET6)
