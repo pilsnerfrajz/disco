@@ -261,11 +261,9 @@ int main(int argc, char *argv[])
 			goto cleanup;
 		}
 
-		msg = "[+] Port scan results:\n";
-		print_wrapper(stdout, fp, msg);
-
 		if (is_open_port)
 		{
+			print_wrapper(stdout, fp, "[+] Port scan results:\n");
 			print_open_ports(res_arr, port_arr, port_count, show_open, fp);
 		}
 		else
