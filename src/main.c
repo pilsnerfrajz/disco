@@ -14,6 +14,14 @@
 #define RETRIES 3
 #define MSG_BUF_SIZE 2048
 
+/**
+ * @brief Print a message to a stream and to a file if provided.
+ *
+ * @param stream e.g. `stderr` or `stdout`
+ * @param fp file pointer to an output file. Can be NULL.
+ * @param msg message to print
+ * @return int 0 on success, -1 if stream is NULL
+ */
 static int print_wrapper(FILE *stream, FILE *fp, const char *msg)
 {
 	if (stream == NULL)
@@ -28,6 +36,14 @@ static int print_wrapper(FILE *stream, FILE *fp, const char *msg)
 	return 0;
 }
 
+/**
+ * @brief Default host discovery function. First tries ARP, then falls back to
+ * ICMP if ARP fails.
+ *
+ * @param fp file pointer to an output file. Can be NULL.
+ * @param target The target address to check.
+ * @return `int` 0 on success, `NO_RESPONSE` if an error occurs.
+ */
 static int default_scan(FILE *fp, char *target)
 {
 	int rv = arp(target);
@@ -49,6 +65,15 @@ static int default_scan(FILE *fp, char *target)
 	return 0;
 }
 
+/**
+ * @brief Print open ports.
+ *
+ * @param res_arr Array of port scan results.
+ * @param port_arr Array of ports supplied by the user.
+ * @param port_count Number of ports in the user-supplied array.
+ * @param show_open Flag to indicate whether to show only open ports.
+ * @param fp File pointer to an output file. Can be NULL.
+ */
 static void print_open_ports(unsigned short *res_arr,
 							 unsigned short *port_arr,
 							 int port_count,
