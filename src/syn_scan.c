@@ -27,6 +27,7 @@
 #define SYN 0x02	 /* Sets the SYN flag in the TCP flag field */
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
 #define RST 0x04	 /* Sets the RST flag in the TCP flag field */
+#define ACK 0x10
 #define TIMEOUT_SECONDS 2
 #define RETRIES 3
 #define IP_PACKET_LEN 65535
@@ -147,6 +148,13 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	else if (tcp_hdr->flags & RST)
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = CLOSED;
+	}
+	/* Hosts seem to respond only with ACK now after disabling VPN??? */
+	else if (tcp_hdr->flags & ACK)
+	{
+		printf("ACK received\n");
+		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
+		c_data->any_open = 1;
 	}
 	return;
 }
