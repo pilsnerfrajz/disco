@@ -78,11 +78,11 @@ void cli_test(void)
 					 "127.0.0.1",
 					 "::1"};
 
-	parse_cli(2, help, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp);
+	parse_cli(2, help, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, NULL);
 
 	test(0, ports, 0, target, no_host_disc, force_ping, force_arp);
 
-	parse_cli(11, parse, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp);
+	parse_cli(11, parse, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, NULL);
 
 	test(6, ports, 1, target, no_host_disc, force_ping, force_arp);
 
