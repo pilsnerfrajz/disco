@@ -11,7 +11,10 @@ void print_err(FILE *stream, char *function, int err_val)
 		fprintf(stream, "%s\n", function);
 		return;
 	}
-	fprintf(stream, "%s: %s\n", function, error_strings[err_val]);
+	if (stream != NULL)
+	{
+		fprintf(stream, "%s: %s\n", function, error_strings[err_val]);
+	}
 }
 
 const char *const error_strings[] = {
