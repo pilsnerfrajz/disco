@@ -149,10 +149,14 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = CLOSED;
 	}
-	/* Hosts seem to respond only with ACK now after disabling VPN??? */
+	/*
+	 * Hosts seem to respond only with ACK now after disabling VPN?
+	 * If the server does not respond with RST or SYN-ACK, but only ACK
+	 * the port is likely open. At least the connection was not reset
+	 * and closed by the target.
+	 */
 	else if (tcp_hdr->flags & ACK)
 	{
-		printf("ACK received\n");
 		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
 		c_data->any_open = 1;
 	}
