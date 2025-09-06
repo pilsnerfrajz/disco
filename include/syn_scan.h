@@ -1,6 +1,10 @@
 #ifndef SYN_SCAN_H
 #define SYN_SCAN_H
 
+#define FILTERED 0
+#define OPEN 1
+#define CLOSED 2
+
 /**
  * @brief Performs a SYN scan on the specified ports of a target address or
  * domain. If `print_state` is true, the open ports will be printed. An array
@@ -13,15 +17,15 @@
  * @param address The target address to scan.
  * @param port_arr The array of ports to scan.
  * @param count The number of ports in the array.
- * @param print_state Whether to print the open ports.
+ * @param is_open_port Whether any open ports were found.
  * @param result_arr Pointer to an array to store the results of the scan.
  * @return `int` Returns SUCCESS on success, or an error code from `error.h` on failure.
  */
 int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int count,
-			  int print_state,
-			  short **result_arr);
+			  short *is_open_port,
+			  unsigned short **result_arr);
 
 /**
  * @brief Parses a string with a format similar to `"1,2,3-5,6"`, and returns it
@@ -37,5 +41,12 @@ int port_scan(char *address,
  * returned if an error occurs.
  */
 unsigned short *parse_ports(const char *port_str, int *port_count);
+
+/**
+ * @brief Controls whether syn_scan should print results during testing.
+ *
+ * @param enable 1 to enable output, 0 to suppress output
+ */
+void set_test_print_flag(int enable);
 
 #endif

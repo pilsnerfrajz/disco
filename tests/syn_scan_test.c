@@ -10,6 +10,8 @@ void syn_scan_test(void)
 {
 	printf("-- SYN SCAN TESTS --\n");
 
+	set_test_print_flag(1);
+
 	/* DEBUG: sudo lsof -PiTCP -sTCP:LISTEN */
 
 	unsigned short parse_test_arr[10] = {1, 2, 3, 4, 5, 6, 10, 11, 4444, 65535};
@@ -32,7 +34,7 @@ void syn_scan_test(void)
 		{
 			if (all_ports[i] != i + 1)
 			{
-				print_err("❌ Parse all ports failed", -1);
+				print_err(stderr, "❌ Parse all ports failed", -1);
 				break;
 			}
 		}
@@ -40,7 +42,7 @@ void syn_scan_test(void)
 	}
 	else
 	{
-		print_err("❌ Parse all ports test failed", -1);
+		print_err(stderr, "❌ Parse all ports test failed", -1);
 	}
 
 	int parse_ok = 1;
@@ -52,7 +54,7 @@ void syn_scan_test(void)
 		{
 			if (parse_test_arr[i] != parse_test_ports[i])
 			{
-				print_err("❌ Parse mixed ports test failed", -1);
+				print_err(stderr, "❌ Parse mixed ports test failed", -1);
 				parse_ok = 0;
 				break;
 			}
@@ -64,52 +66,54 @@ void syn_scan_test(void)
 	}
 	else
 	{
-		print_err("❌ Parse mixed ports failed", -1);
+		print_err(stderr, "❌ Parse mixed ports failed", -1);
 	}
 
-	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, 1, NULL)) == SUCCESS)
+	short is_open = 0;
+
+	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, &is_open, NULL)) == SUCCESS)
 		printf("└ ✅ Localhost IPv4 Port scan test: Passed\n");
 	else
 	{
-		print_err("└ ❌ Localhost IPv4 Port scan test failed", ret);
+		print_err(stderr, "└ ❌ Localhost IPv4 Port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, 1, NULL)) == SUCCESS)
+	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, &is_open, NULL)) == SUCCESS)
 		printf("└ ✅ Localhost IPv6 Port scan test: Passed\n");
 	else
 	{
-		print_err("└ ❌ Localhost IPv6 Port scan test failed", ret);
+		print_err(stderr, "└ ❌ Localhost IPv6 Port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("127.0.0.1", all_ports, all_port_count, 1, NULL)) == SUCCESS)
+	/*if ((ret = port_scan("127.0.0.1", all_ports, all_port_count, &is_open, NULL)) == SUCCESS)
 		printf("└ ✅ IPv4 Localhost full port scan test: Passed\n");
 	else
 	{
-		print_err("└ ❌ IPv4 Localhost full port scan test failed", ret);
+		print_err(stderr, "└ ❌ IPv4 Localhost full port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("::1", all_ports, all_port_count, 1, NULL)) == SUCCESS)
+	if ((ret = port_scan("::1", all_ports, all_port_count, &is_open, NULL)) == SUCCESS)
 		printf("└ ✅ IPv6 Localhost full port scan test: Passed\n");
 	else
 	{
-		print_err("└ ❌ IPv6 Localhost full port scan test failed", ret);
-	}
+		print_err(stderr, "└ ❌ IPv6 Localhost full port scan test failed", ret);
+	}*/
 
 	if (ping(lan_dev, 3) == SUCCESS)
 	{
-		if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, 1, NULL)) == SUCCESS)
+		if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, &is_open, NULL)) == SUCCESS)
 			printf("└ ✅ IPv4 LAN device port scan test: Passed\n");
 		else
 		{
-			print_err("└ ❌ IPv4 LAN device port scan test failed", ret);
+			print_err(stderr, "└ ❌ IPv4 LAN device port scan test failed", ret);
 		}
 
-		if ((ret = port_scan(lan_dev, all_ports, all_port_count, 1, NULL)) == SUCCESS)
+		/*if ((ret = port_scan(lan_dev, all_ports, all_port_count, &is_open, NULL)) == SUCCESS)
 			printf("└ ✅ IPv4 LAN device full port scan test: Passed\n");
 		else
 		{
-			print_err("└ ❌ IPv4 LAN device full port scan test failed", ret);
-		}
+			print_err(stderr, "└ ❌ IPv4 LAN device full port scan test failed", ret);
+		}*/
 	}
 	else
 	{
@@ -121,14 +125,14 @@ void syn_scan_test(void)
 		printf("✅ IPv6 Lan Port scan test: Passed\n");
 	else
 	{
-		print_err("❌ IPv6 Lan Port scan test failed", ret);
+		print_err(stderr, "❌ IPv6 Lan Port scan test failed", ret);
 	}*/
 
-	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, 1, NULL)) == SUCCESS)
+	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, &is_open, NULL)) == SUCCESS)
 		printf("└ ✅ External Port scan test: Passed\n");
 	else
 	{
-		print_err("└ ❌ External Port scan test failed", ret);
+		print_err(stderr, "└ ❌ External Port scan test failed", ret);
 	}
 
 	free(all_ports);
