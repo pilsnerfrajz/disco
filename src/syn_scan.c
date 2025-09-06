@@ -80,13 +80,37 @@ static void break_capture(int signum)
 static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 							const u_char *bytes)
 {
+	(void)pkt_hdr;
+
 	struct callback_data *c_data = (struct callback_data *)user;
 	tcp_header_t *tcp_hdr;
 
-	/* If loopback */
-	if (c_data->loopback_flag)
+	ethernet_header_t *eth = (ethernet_header_t *)bytes;
+
+	if (ntohs(eth->ptype) == ETH_TYPE_IPV4)
 	{
-		int skip_null = 4;
+		struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
+		if (ip_hdr->ip_p != IP_PROTO_TCP)
+		{
+			return;
+		}
+		int ip_len = ip_hdr->ip_hl * 4;
+		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
+	}
+	/* Handle IPv6 packets */
+	else if (ntohs(eth->ptype) == ETH_TYPE_IPV6)
+	{
+		struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + sizeof(ethernet_header_t));
+		if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
+		{
+			return;
+		}
+		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
+	}
+	else
+	{
+		/* Invalid protocol type or no ethernet frame */
+		int skip_null = 4; // TODO CHECK IF LINUX COMPATIBLE
 		struct ip *ip_hdr = (struct ip *)(bytes + skip_null);
 
 		/* Check if IPv4 */
@@ -114,55 +138,8 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 			return;
 		}
 	}
-	else
-	{
-		/* Check minimum packet size for IPv4 */
-		if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
-							   sizeof(struct ip) +
-							   sizeof(tcp_header_t)))
-		{
-			return;
-		}
 
-		ethernet_header_t *eth = (ethernet_header_t *)bytes;
-
-		/* Handle IPv4 packets */
-		if (ntohs(eth->ptype) == ETH_TYPE_IPV4)
-		{
-			struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
-			if (ip_hdr->ip_p != IP_PROTO_TCP)
-			{
-				return;
-			}
-			int ip_len = ip_hdr->ip_hl * 4;
-			tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
-		}
-		/* Handle IPv6 packets */
-		else if (ntohs(eth->ptype) == ETH_TYPE_IPV6)
-		{
-			/* Check minimum packet size for IPv6 */
-			if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
-								   sizeof(struct ip6_hdr) +
-								   sizeof(tcp_header_t)))
-			{
-				return;
-			}
-
-			struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + sizeof(ethernet_header_t));
-			if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
-			{
-				return;
-			}
-			tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
-		}
-		else
-		{
-			/* Invalid protocol type */
-			return;
-		}
-	}
-
-	if (tcp_hdr->flags == SYN_ACK)
+	if ((tcp_hdr->flags & SYN_ACK) == SYN_ACK)
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
 		c_data->any_open = 1;
