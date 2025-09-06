@@ -529,10 +529,14 @@ static int pcap_handle_setup(pcap_t **h, struct src_info src_info)
 			if (a->addr && a->addr->sa_family == AF_INET)
 			{
 				struct sockaddr_in *sin = (struct sockaddr_in *)a->addr;
-				if (strcmp(inet_ntoa(sin->sin_addr), if_ip) == 0)
+				char ipv4_str[INET_ADDRSTRLEN];
+				if (inet_ntop(AF_INET, &sin->sin_addr, ipv4_str, INET_ADDRSTRLEN))
 				{
-					if_name = d;
-					break;
+					if (strcmp(ipv4_str, if_ip) == 0)
+					{
+						if_name = d;
+						break;
+					}
 				}
 			}
 			else if (a->addr && a->addr->sa_family == AF_INET6)
@@ -854,11 +858,12 @@ int port_scan(char *address,
 		return UNKNOWN_HOST;
 	}
 
-	/* Resolve address if domain*/
 	char resolved_address[INET6_ADDRSTRLEN];
 	if (dst->ai_addr->sa_family == AF_INET)
 	{
-		address = inet_ntoa(((struct sockaddr_in *)dst->ai_addr)->sin_addr);
+		inet_ntop(AF_INET, &((struct sockaddr_in *)dst->ai_addr)->sin_addr,
+				  resolved_address, INET_ADDRSTRLEN);
+		address = resolved_address;
 	}
 	else
 	{
