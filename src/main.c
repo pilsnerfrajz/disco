@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "../include/error.h"
 #include "../include/cli.h"
@@ -146,6 +148,14 @@ int main(int argc, char *argv[])
 	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &write_file) != 0)
 	{
 		return CLI_PARSE;
+	}
+
+	if (getuid() != 0)
+	{
+		fprintf(stderr, "[-] Permission denied, run as root!\n");
+		usage(stderr);
+		rv = PERMISSION_ERROR;
+		goto cleanup;
 	}
 
 	if (write_file != NULL)
