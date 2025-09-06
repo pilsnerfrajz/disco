@@ -93,7 +93,7 @@ static void print_open_ports(unsigned short *res_arr,
 	print_wrapper(stdout, fp, m);
 
 	int open_count = 0;
-	int unknown_count = 0;
+	int filtered_count = 0;
 	for (int i = 0; i < port_count; i++)
 	{
 		unsigned short port = port_arr[i];
@@ -104,15 +104,15 @@ static void print_open_ports(unsigned short *res_arr,
 			memset(msg_buf, 0, MSG_BUF_SIZE);
 			open_count++;
 		}
-		else if (res_arr[port] == UNKNOWN)
+		else if (res_arr[port] == FILTERED)
 		{
 			if (!show_open)
 			{
-				snprintf(msg_buf, MSG_BUF_SIZE, "%d\tunknown\n", port);
+				snprintf(msg_buf, MSG_BUF_SIZE, "%d\tfiltered\n", port);
 				print_wrapper(stdout, fp, msg_buf);
 				memset(msg_buf, 0, MSG_BUF_SIZE);
 			}
-			unknown_count++;
+			filtered_count++;
 		}
 	}
 
@@ -120,26 +120,26 @@ static void print_open_ports(unsigned short *res_arr,
 	{
 		if (!show_open)
 		{
-			snprintf(msg_buf, MSG_BUF_SIZE, "\n[+] Found %d open port(s), %d unknown port(s), %d closed port(s) not shown\n",
+			snprintf(msg_buf, MSG_BUF_SIZE, "\n[+] Found %d open port(s), %d filtered port(s), %d closed port(s) not shown\n",
 					 open_count,
-					 unknown_count,
-					 port_count - open_count - unknown_count);
+					 filtered_count,
+					 port_count - open_count - filtered_count);
 			print_wrapper(stdout, fp, msg_buf);
 			memset(msg_buf, 0, MSG_BUF_SIZE);
 		}
 		else
 		{
-			snprintf(msg_buf, MSG_BUF_SIZE, "\n[+] Found %d open port(s), %d unknown and %d closed port(s) not shown\n",
+			snprintf(msg_buf, MSG_BUF_SIZE, "\n[+] Found %d open port(s), %d filtered and %d closed port(s) not shown\n",
 					 open_count,
-					 unknown_count,
-					 port_count - open_count - unknown_count);
+					 filtered_count,
+					 port_count - open_count - filtered_count);
 			print_wrapper(stdout, fp, msg_buf);
 			memset(msg_buf, 0, MSG_BUF_SIZE);
 		}
 	}
 	else if (open_count == port_count)
 	{
-		m = "\n All scanned ports are open!\n";
+		m = "\n[+] All scanned ports are open!\n";
 		print_wrapper(stdout, fp, m);
 	}
 }

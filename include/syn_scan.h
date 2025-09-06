@@ -1,7 +1,7 @@
 #ifndef SYN_SCAN_H
 #define SYN_SCAN_H
 
-#define UNKNOWN 0
+#define FILTERED 0
 #define OPEN 1
 #define CLOSED 2
 

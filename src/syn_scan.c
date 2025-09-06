@@ -798,7 +798,7 @@ static int send_syn(int sfd,
 			}
 
 			/* Skip if port has already responded (open or closed) */
-			if (c_data->port_status[port_arr[p_index]] != UNKNOWN)
+			if (c_data->port_status[port_arr[p_index]] != FILTERED)
 			{
 				continue;
 			}
