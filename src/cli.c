@@ -3,10 +3,17 @@
 #include <string.h>
 #include <getopt.h>
 #include <arpa/inet.h>
+
+#include "../include/error.h"
 #include "../include/syn_scan.h"
 #include "../include/utils.h"
 
-void banner(FILE *stream)
+/**
+ * @brief Prints the banner and usage information if -h or no arguments are given.
+ *
+ * @param stream Output stream (e.g., stdout or stderr).
+ */
+static void banner(FILE *stream)
 {
 	fprintf(stream,
 			"@@@@@@@,   **  ,@@@@@@@  ,@@@@@@@  ,@@@@@@@,\n"
@@ -122,7 +129,7 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 					{
 						fprintf(stderr, "[-] Invalid port specification: '-p %s'\n", optarg);
 						usage(stderr);
-						return -1;
+						return CLI_PARSE;
 					}
 					free(temp_ports);
 					/* Add one for null terminator */
@@ -162,7 +169,7 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 			break;
 		case 'h':
 			usage(stdout);
-			return -1;
+			return CLI_PARSE;
 		case '?':
 			if (optopt != 0)
 			{
@@ -180,11 +187,11 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 				}
 			}
 			usage(stderr);
-			return -1;
+			return CLI_PARSE;
 		default:
 			fprintf(stderr, "[-] Unexpected argument: %c\n", option);
 			usage(stderr);
-			return -1;
+			return CLI_PARSE;
 		}
 	}
 
@@ -217,14 +224,14 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 	{
 		fprintf(stderr, "[-] Conflicting options. Only one of -P, -a and -n can be used at once\n");
 		usage(stderr);
-		return -1;
+		return CLI_PARSE;
 	}
 
 	if (*target == NULL)
 	{
 		fprintf(stderr, "[-] No valid target specified\n");
 		usage(stderr);
-		return -1;
+		return CLI_PARSE;
 	}
 
 	return 0;
