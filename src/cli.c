@@ -16,14 +16,6 @@ void banner(FILE *stream)
 			"@@@@@@@'   **  @@@@@@@'  '@@@@@@@  '@@@@@@@'\n\n"
 			"disco - network utility for host discovery and port enumeration\n"
 			"author: pilsnerfrajz\n\n");
-}
-
-void usage(FILE *stream)
-{
-	if (stream == stdout)
-	{
-		banner(stream);
-	}
 	fprintf(stream,
 			"usage: disco target [-h] [-p port(s)] [-o] [-n] [-P] [-a] [-w file]\n"
 			"options:\n"
@@ -35,6 +27,28 @@ void usage(FILE *stream)
 			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
 			"  -w, --write     : write results to a file\n"
 			"  -h, --help      : display this message\n");
+}
+
+void usage(FILE *stream)
+{
+	if (stream == stdout)
+	{
+		banner(stream);
+	}
+	else
+	{
+		fprintf(stream,
+				"[!] usage: disco target [-h] [-p port(s)] [-o] [-n] [-P] [-a] [-w file]\n"
+				"    options:\n"
+				"      target          : host to scan (IP address or domain)\n"
+				"      -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
+				"      -o, --open      : show open ports only (default: open or unknown)\n"
+				"      -n, --no-check  : skip host status check\n"
+				"      -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
+				"      -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
+				"      -w, --write     : write results to a file\n"
+				"      -h, --help      : display this message\n");
+	}
 }
 
 int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_open,
@@ -106,7 +120,7 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 					unsigned short *temp_ports = parse_ports(optarg, &count);
 					if (temp_ports == NULL)
 					{
-						fprintf(stderr, "[-] Invalid port specification: '-p %s'\n\n", optarg);
+						fprintf(stderr, "[-] Invalid port specification: '-p %s'\n", optarg);
 						usage(stderr);
 						return -1;
 					}
@@ -154,21 +168,21 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 			{
 				if (optopt == 'p')
 				{
-					fprintf(stderr, "[-] Missing port(s) for '-p'\n\n");
+					fprintf(stderr, "[-] Missing port(s) for '-p'\n");
 				}
 				else if (optopt == 'w')
 				{
-					fprintf(stderr, "[-] Missing file name for '-w'\n\n");
+					fprintf(stderr, "[-] Missing file name for '-w'\n");
 				}
 				else
 				{
-					fprintf(stderr, "[-] Unknown option '-%c'\n\n", optopt);
+					fprintf(stderr, "[-] Unknown option '-%c'\n", optopt);
 				}
 			}
 			usage(stderr);
 			return -1;
 		default:
-			fprintf(stderr, "[-] Unexpected argument: %c\n\n", option);
+			fprintf(stderr, "[-] Unexpected argument: %c\n", option);
 			usage(stderr);
 			return -1;
 		}
@@ -201,14 +215,14 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 
 	if (*force_arp + *force_ping + *no_host_disc > 1)
 	{
-		fprintf(stderr, "[-] Conflicting options. Only one of -P, -a and -n can be used at once\n\n");
+		fprintf(stderr, "[-] Conflicting options. Only one of -P, -a and -n can be used at once\n");
 		usage(stderr);
 		return -1;
 	}
 
 	if (*target == NULL)
 	{
-		fprintf(stderr, "[-] No valid target specified\n\n");
+		fprintf(stderr, "[-] No valid target specified\n");
 		usage(stderr);
 		return -1;
 	}
