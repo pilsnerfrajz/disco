@@ -36,6 +36,7 @@
 #define ETH_FRAME_SIZE 1518 /* https://en.wikipedia.org/wiki/Ethernet_frame#Ethernet_II */
 #define CAP_TIMEOUT 1000	/* Milliseconds */
 #define ALARM_SEC 2
+#define MAX_INTERFACES 32
 
 static pcap_t *handle; /* Global handle for PCAP */
 
@@ -294,6 +295,18 @@ int get_mask_ioctl(const char *iface, struct sockaddr_in **mask)
 	}
 }
 
+/* Struct to hold interface information */
+struct if_info
+{
+	char name[IF_NAME_SIZE];
+	struct sockaddr_in ip;
+	struct sockaddr_in mask;
+	unsigned char mac[6];
+	int has_ip;
+	int has_mask;
+	int has_mac;
+};
+
 int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip_buf,
 					u_int8_t *src_mac_buf, char *if_name, size_t if_size)
 {
@@ -305,57 +318,23 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip_buf,
 		return IFACE_ERROR;
 	}
 
-	/* Bools for checking if we have the wanted info */
-	int net_mask = 0;
-	int ip_addr = 0;
-	int mac_addr = 0;
+	/* Array to store interface information */
+	struct if_info interfaces[MAX_INTERFACES];
 
-	char *iface = "";
-	unsigned char *mac;
-	struct sockaddr_in *ip;
-	struct sockaddr_in *mask;
+	/* Counter for looping later */
+	int interface_count = 0;
 
+	/* Loop through all interfaces and store info in struct */
 	for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next)
 	{
-		if (ip_addr && mac_addr && net_mask)
+		if (ifa->ifa_name == NULL)
 		{
-			/* If target and host are on the same subnet, ARP is possible */
-			if (compare_subnets(ip->sin_addr.s_addr,
-								dst->sin_addr.s_addr,
-								mask->sin_addr.s_addr) != 0)
-			{
-				net_mask = 0;
-				ip_addr = 0;
-				mac_addr = 0;
-				continue;
-			}
-
-			/* Buffers must be 4 and 6 bytes */
-			if (sizeof(src_ip_buf) < 4 && sizeof(src_mac_buf) < 6)
-			{
-				return BAD_BUF_SIZE;
-			}
-			memcpy(src_ip_buf, &ip->sin_addr.s_addr, 4);
-			memcpy(src_mac_buf, mac, 6);
-
-			/* Copy interface name to if_name */
-			if (snprintf(if_name, if_size, "%s", iface) >= (int)if_size)
-			{
-				freeifaddrs(ifap);
-				return BAD_BUF_SIZE;
-			}
-
-			freeifaddrs(ifap);
-			return ARP_SUPP;
+			continue;
 		}
 
-		/* Check if interface is loopback. Continue if it is */
+		/* Check if interface is loopback. Skip if it is */
 		if (ifa->ifa_flags & IFF_LOOPBACK)
 		{
-			/*
-			 * Double-check that the interface is actually loopback as the
-			 * Ubuntu flags were wrong for the wlp3s0 interface
-			 */
 			if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET)
 			{
 				struct sockaddr_in *check_ip = (struct sockaddr_in *)ifa->ifa_addr;
@@ -366,74 +345,114 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip_buf,
 			}
 		}
 
-		if (ifa->ifa_name != NULL)
+		/* Find or create interface entry */
+		int iface_id = -1;
+		for (int i = 0; i < interface_count; i++)
 		{
-			/* If a new interface is found, reset */
-			if (strcmp(iface, ifa->ifa_name) != 0)
+			if (strncmp(interfaces[i].name, ifa->ifa_name, IF_NAME_SIZE - 1) == 0)
 			{
-				iface = ifa->ifa_name;
-				net_mask = 0;
-				ip_addr = 0;
-				mac_addr = 0;
+				iface_id = i;
+				break;
 			}
 		}
 
-/* AF_LINK = macOS */
-#ifdef __APPLE__
-		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_LINK)
+		if (iface_id == -1 && interface_count < MAX_INTERFACES)
 		{
-			/* https://www.illumos.org/man/3SOCKET/sockaddr_dl */
-			struct sockaddr_dl *s = (struct sockaddr_dl *)ifa->ifa_addr;
-
-			if (s->sdl_type == IFT_ETHER)
-			{
-				/* Jump to address in sdl_data with macro */
-				mac = (unsigned char *)LLADDR(s);
-				mac_addr = 1;
-			}
+			iface_id = interface_count++;
+			strncpy(interfaces[iface_id].name, ifa->ifa_name, IF_NAME_SIZE - 1);
+			interfaces[iface_id].name[IF_NAME_SIZE - 1] = '\0';
+			interfaces[iface_id].has_ip = 0;
+			interfaces[iface_id].has_mask = 0;
+			interfaces[iface_id].has_mac = 0;
 		}
-#endif
+
+		if (iface_id == -1)
+		{
+			/* Too many interfaces */
+			break;
+		}
 
 /* AF_PACKET = linux */
 #ifdef __linux__
 		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_PACKET)
 		{
-			/* https://www.illumos.org/man/3SOCKET/sockaddr_dl */
 			struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
-
 			if (s->sll_hatype == ARPHRD_ETHER)
 			{
-				mac = (unsigned char *)s->sll_addr;
-				mac_addr = 1;
+				memcpy(interfaces[iface_id].mac, s->sll_addr, 6);
+				interfaces[iface_id].has_mac = 1;
 			}
 		}
 #endif
 
-		if (ifa->ifa_netmask != NULL && ifa->ifa_netmask->sa_family == AF_INET)
+/* AF_LINK = macOS */
+#ifdef __APPLE__
+		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_LINK)
 		{
-			mask = (struct sockaddr_in *)(ifa->ifa_netmask);
-			net_mask = 1;
-		}
-		else
-		{
-			/*
-			 * The netmask is sometimes incorrect, at least on my Ubuntu.
-			 * getifaddrs retreived 255.0.0.0 instead of 255.255.255.0.
-			 * Use ioctl to double-check.
-			 */
-			if (get_mask_ioctl(iface, &mask))
+			struct sockaddr_dl *s = (struct sockaddr_dl *)ifa->ifa_addr;
+			if (s->sdl_type == IFT_ETHER)
 			{
-				net_mask = 1;
+				memcpy(interfaces[iface_id].mac, LLADDR(s), 6);
+				interfaces[iface_id].has_mac = 1;
 			}
 		}
+#endif
 
+		/* IP address */
 		if (ifa->ifa_addr != NULL && ifa->ifa_addr->sa_family == AF_INET)
 		{
-			ip = (struct sockaddr_in *)ifa->ifa_addr;
-			ip_addr = 1;
+			interfaces[iface_id].ip = *(struct sockaddr_in *)ifa->ifa_addr;
+			interfaces[iface_id].has_ip = 1;
+		}
+
+		/* Netmask */
+		if (ifa->ifa_netmask != NULL && ifa->ifa_netmask->sa_family == AF_INET)
+		{
+			interfaces[iface_id].mask = *(struct sockaddr_in *)ifa->ifa_netmask;
+			interfaces[iface_id].has_mask = 1;
+		}
+		else if (!interfaces[iface_id].has_mask)
+		{
+			/* Try ioctl as backup */
+			struct sockaddr_in *mask_ptr;
+			if (get_mask_ioctl(interfaces[iface_id].name, &mask_ptr))
+			{
+				interfaces[iface_id].mask = *mask_ptr;
+				interfaces[iface_id].has_mask = 1;
+			}
 		}
 	}
 
 	freeifaddrs(ifap);
+
+	/* Loop through saved interface info to find a match */
+	for (int i = 0; i < interface_count; i++)
+	{
+		if (interfaces[i].has_ip && interfaces[i].has_mac && interfaces[i].has_mask)
+		{
+			/* If target and host are on the same subnet, ARP is possible */
+			if (compare_subnets(interfaces[i].ip.sin_addr.s_addr,
+								dst->sin_addr.s_addr,
+								interfaces[i].mask.sin_addr.s_addr) == 0)
+			{
+				/* Buffers must be 4 and 6 bytes */
+				if (sizeof(src_ip_buf) < 4 && sizeof(src_mac_buf) < 6)
+				{
+					return BAD_BUF_SIZE;
+				}
+				memcpy(src_ip_buf, &interfaces[i].ip.sin_addr.s_addr, 4);
+				memcpy(src_mac_buf, interfaces[i].mac, 6);
+
+				/* Copy interface name to if_name */
+				if (snprintf(if_name, if_size, "%s", interfaces[i].name) >= (int)if_size)
+				{
+					return BAD_BUF_SIZE;
+				}
+
+				return ARP_SUPP;
+			}
+		}
+	}
+
 	return ARP_NOT_SUPP;
 }
