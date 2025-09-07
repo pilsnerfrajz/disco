@@ -108,10 +108,15 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		}
 		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
 	}
-	else
+	else /* Invalid protocol type or no ethernet frame */
 	{
-		/* Invalid protocol type or no ethernet frame */
-		int skip_null = 4; // TODO CHECK IF LINUX COMPATIBLE
+#ifdef __APPLE__
+		int skip_null = 4; /* Empty bytes in packet header */
+#endif
+#ifdef __linux__
+		int skip_null = 0; /* No empty bytes on Linux */
+#endif
+
 		struct ip *ip_hdr = (struct ip *)(bytes + skip_null);
 
 		/* Check if IPv4 */
