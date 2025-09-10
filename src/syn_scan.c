@@ -643,12 +643,26 @@ static int pcap_filter_setup(char *address, struct src_info src_info)
 {
 	struct bpf_program filter;
 	char filter_expr[256];
-	if (snprintf(filter_expr, sizeof(filter_expr),
-				 "src %s and dst %s and dst port %d and tcp",
-				 address, src_info.ip,
-				 src_info.port) < 0)
+
+	int is_ipv6 = strchr(address, ':') != NULL;
+
+	if (is_ipv6)
 	{
-		return PCAP_FILTER;
+		if (snprintf(filter_expr, sizeof(filter_expr),
+					 "ip6 and src %s and dst %s and dst port %d and tcp",
+					 address, src_info.ip, src_info.port) < 0)
+		{
+			return PCAP_FILTER;
+		}
+	}
+	else
+	{
+		if (snprintf(filter_expr, sizeof(filter_expr),
+					 "ip and src %s and dst %s and dst port %d and tcp",
+					 address, src_info.ip, src_info.port) < 0)
+		{
+			return PCAP_FILTER;
+		}
 	}
 
 	int rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
@@ -701,10 +715,14 @@ static void create_ipv6_pseudo_hdr(tcp_pseudo_ipv6_t *tcp_pseudo_ipv6,
 								   struct protoent *protocol)
 {
 	memset(tcp_pseudo_ipv6, 0, sizeof(tcp_pseudo_ipv6_t));
-	tcp_pseudo_ipv6->src_ip = ((struct sockaddr_in6 *)bind_ptr)->sin6_addr;
-	tcp_pseudo_ipv6->dst_ip = ((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr;
-	tcp_pseudo_ipv6->next = protocol->p_proto;
-	tcp_pseudo_ipv6->length = htons(sizeof(tcp_header_t));
+	memcpy(&tcp_pseudo_ipv6->src_ip.s6_addr,
+		   &((struct sockaddr_in6 *)bind_ptr)->sin6_addr,
+		   sizeof(struct in6_addr));
+	memcpy(&tcp_pseudo_ipv6->dst_ip,
+		   &((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr,
+		   sizeof(struct in6_addr));
+	tcp_pseudo_ipv6->next = htonl(protocol->p_proto);
+	tcp_pseudo_ipv6->length = htonl(sizeof(tcp_header_t));
 }
 
 /**
@@ -997,6 +1015,16 @@ int port_scan(char *address,
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
+
+#ifdef __linux__
+		/* Make kernel include IP header */
+		int off = 0;
+		if (setsockopt(sfd, IPPROTO_IPV6, IPV6_HDRINCL, &off, sizeof(off)) < 0)
+		{
+			return SOCKET_ERROR;
+		}
+#endif
+
 		tcp_pseudo_ipv6_t tcp_pseudo_ipv6 = {0};
 		create_ipv6_pseudo_hdr(&tcp_pseudo_ipv6, bind_ptr, dst, protocol);
 
