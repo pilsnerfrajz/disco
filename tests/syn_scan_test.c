@@ -129,10 +129,17 @@ void syn_scan_test(void)
 	}*/
 
 	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, &is_open, NULL)) == SUCCESS)
-		printf("└ ✅ External Port scan test: Passed\n");
+		printf("└ ✅ External IPv4 Port scan test: Passed\n");
 	else
 	{
-		print_err(stderr, "└ ❌ External Port scan test failed", ret);
+		print_err(stderr, "└ ❌ External IPv4 Port scan test failed", ret);
+	}
+
+	if ((ret = port_scan("2600:3c01::f03c:91ff:fe18:bb2f", scanme_ports, 4, &is_open, NULL)) == SUCCESS)
+		printf("└ ✅ External IPv6 Port scan test: Passed\n");
+	else
+	{
+		print_err(stderr, "└ ❌ External IPv6 Port scan test failed", ret);
 	}
 
 	free(all_ports);

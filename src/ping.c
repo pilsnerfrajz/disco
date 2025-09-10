@@ -288,9 +288,8 @@ int ping(char *address, int tries)
 			tcp_pseudo_ipv6_t pseudo_hdr = {
 				.src_ip = src.sin6_addr,
 				.dst_ip = dest_addr,
-				.zero = {0, 0, 0},
 				.length = htonl(sizeof(icmp6_req_hdr)),
-				.next = IPPROTO_ICMPV6,
+				.next = htonl(IPPROTO_ICMPV6),
 			};
 
 			icmp6_req_hdr.icmp6_cksum = calc_checksum(&pseudo_hdr, sizeof(pseudo_hdr) + sizeof(icmp6_req_hdr));

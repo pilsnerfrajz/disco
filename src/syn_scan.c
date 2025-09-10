@@ -27,6 +27,7 @@
 #define SYN 0x02	 /* Sets the SYN flag in the TCP flag field */
 #define SYN_ACK 0x12 /* Sets the SYN and ACK flag in the TCP flag field */
 #define RST 0x04	 /* Sets the RST flag in the TCP flag field */
+#define ACK 0x10
 #define TIMEOUT_SECONDS 2
 #define RETRIES 3
 #define IP_PACKET_LEN 65535
@@ -80,13 +81,42 @@ static void break_capture(int signum)
 static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 							const u_char *bytes)
 {
+	(void)pkt_hdr;
+
 	struct callback_data *c_data = (struct callback_data *)user;
 	tcp_header_t *tcp_hdr;
 
-	/* If loopback */
-	if (c_data->loopback_flag)
+	ethernet_header_t *eth = (ethernet_header_t *)bytes;
+
+	if (ntohs(eth->ptype) == ETH_TYPE_IPV4)
 	{
-		int skip_null = 4;
+		struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
+		if (ip_hdr->ip_p != IP_PROTO_TCP)
+		{
+			return;
+		}
+		int ip_len = ip_hdr->ip_hl * 4;
+		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
+	}
+	/* Handle IPv6 packets */
+	else if (ntohs(eth->ptype) == ETH_TYPE_IPV6)
+	{
+		struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + sizeof(ethernet_header_t));
+		if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
+		{
+			return;
+		}
+		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
+	}
+	else /* Invalid protocol type or no ethernet frame */
+	{
+#ifdef __APPLE__
+		int skip_null = 4; /* Empty bytes in packet header */
+#endif
+#ifdef __linux__
+		int skip_null = 0; /* No empty bytes on Linux */
+#endif
+
 		struct ip *ip_hdr = (struct ip *)(bytes + skip_null);
 
 		/* Check if IPv4 */
@@ -114,55 +144,8 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 			return;
 		}
 	}
-	else
-	{
-		/* Check minimum packet size for IPv4 */
-		if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
-							   sizeof(struct ip) +
-							   sizeof(tcp_header_t)))
-		{
-			return;
-		}
 
-		ethernet_header_t *eth = (ethernet_header_t *)bytes;
-
-		/* Handle IPv4 packets */
-		if (ntohs(eth->ptype) == ETH_TYPE_IPV4)
-		{
-			struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
-			if (ip_hdr->ip_p != IP_PROTO_TCP)
-			{
-				return;
-			}
-			int ip_len = ip_hdr->ip_hl * 4;
-			tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
-		}
-		/* Handle IPv6 packets */
-		else if (ntohs(eth->ptype) == ETH_TYPE_IPV6)
-		{
-			/* Check minimum packet size for IPv6 */
-			if (pkt_hdr->caplen < (sizeof(ethernet_header_t) +
-								   sizeof(struct ip6_hdr) +
-								   sizeof(tcp_header_t)))
-			{
-				return;
-			}
-
-			struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + sizeof(ethernet_header_t));
-			if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
-			{
-				return;
-			}
-			tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
-		}
-		else
-		{
-			/* Invalid protocol type */
-			return;
-		}
-	}
-
-	if (tcp_hdr->flags == SYN_ACK)
+	if ((tcp_hdr->flags & SYN_ACK) == SYN_ACK)
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
 		c_data->any_open = 1;
@@ -170,6 +153,17 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	else if (tcp_hdr->flags & RST)
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = CLOSED;
+	}
+	/*
+	 * Hosts seem to respond only with ACK now after disabling VPN?
+	 * If the server does not respond with RST or SYN-ACK, but only ACK
+	 * the port is likely open. At least the connection was not reset
+	 * and closed by the target.
+	 */
+	else if (tcp_hdr->flags & ACK)
+	{
+		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
+		c_data->any_open = 1;
 	}
 	return;
 }
@@ -649,12 +643,26 @@ static int pcap_filter_setup(char *address, struct src_info src_info)
 {
 	struct bpf_program filter;
 	char filter_expr[256];
-	if (snprintf(filter_expr, sizeof(filter_expr),
-				 "src %s and dst %s and dst port %d and tcp",
-				 address, src_info.ip,
-				 src_info.port) < 0)
+
+	int is_ipv6 = strchr(address, ':') != NULL;
+
+	if (is_ipv6)
 	{
-		return PCAP_FILTER;
+		if (snprintf(filter_expr, sizeof(filter_expr),
+					 "ip6 and src %s and dst %s and dst port %d and tcp",
+					 address, src_info.ip, src_info.port) < 0)
+		{
+			return PCAP_FILTER;
+		}
+	}
+	else
+	{
+		if (snprintf(filter_expr, sizeof(filter_expr),
+					 "ip and src %s and dst %s and dst port %d and tcp",
+					 address, src_info.ip, src_info.port) < 0)
+		{
+			return PCAP_FILTER;
+		}
 	}
 
 	int rv = pcap_compile(handle, &filter, filter_expr, 0, 0);
@@ -707,10 +715,14 @@ static void create_ipv6_pseudo_hdr(tcp_pseudo_ipv6_t *tcp_pseudo_ipv6,
 								   struct protoent *protocol)
 {
 	memset(tcp_pseudo_ipv6, 0, sizeof(tcp_pseudo_ipv6_t));
-	tcp_pseudo_ipv6->src_ip = ((struct sockaddr_in6 *)bind_ptr)->sin6_addr;
-	tcp_pseudo_ipv6->dst_ip = ((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr;
-	tcp_pseudo_ipv6->next = protocol->p_proto;
-	tcp_pseudo_ipv6->length = htons(sizeof(tcp_header_t));
+	memcpy(&tcp_pseudo_ipv6->src_ip.s6_addr,
+		   &((struct sockaddr_in6 *)bind_ptr)->sin6_addr,
+		   sizeof(struct in6_addr));
+	memcpy(&tcp_pseudo_ipv6->dst_ip,
+		   &((struct sockaddr_in6 *)(dst->ai_addr))->sin6_addr,
+		   sizeof(struct in6_addr));
+	tcp_pseudo_ipv6->next = htonl(protocol->p_proto);
+	tcp_pseudo_ipv6->length = htonl(sizeof(tcp_header_t));
 }
 
 /**
@@ -1003,6 +1015,16 @@ int port_scan(char *address,
 	}
 	else if (dst->ai_family == AF_INET6)
 	{
+
+#ifdef __linux__
+		/* Make kernel include IP header */
+		int off = 0;
+		if (setsockopt(sfd, IPPROTO_IPV6, IPV6_HDRINCL, &off, sizeof(off)) < 0)
+		{
+			return SOCKET_ERROR;
+		}
+#endif
+
 		tcp_pseudo_ipv6_t tcp_pseudo_ipv6 = {0};
 		create_ipv6_pseudo_hdr(&tcp_pseudo_ipv6, bind_ptr, dst, protocol);
 
