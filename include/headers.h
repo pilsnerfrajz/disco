@@ -57,8 +57,7 @@ typedef struct tcp_pseudo_ipv6
 	struct in6_addr src_ip;
 	struct in6_addr dst_ip;
 	u_int32_t length;
-	u_int32_t zero[3];
-	u_int8_t next;
+	u_int32_t next;
 } tcp_pseudo_ipv6_t;
 
 /**
