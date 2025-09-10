@@ -31,10 +31,10 @@ void ping_test(void)
 	else
 		print_err(stderr, "❌ IPv4 IP of example.com ping test failed", ret);
 
-	if ((ret = ping("2606:2800:21f:cb07:6820:80da:af6b:8b2c", 3)) == SUCCESS)
-		printf("✅ IPv6 IP of example.com ping test: Passed\n");
+	if ((ret = ping("2600:3c01::f03c:91ff:fe18:bb2f", 3)) == SUCCESS)
+		printf("✅ IPv6 IP of scanme.nmap.org ping test: Passed\n");
 	else
-		print_err(stderr, "❌ IPv6 IP of example.com ping test failed", ret);
+		print_err(stderr, "❌ IPv6 IP of scanme.nmap.org ping test failed", ret);
 
 	if ((ret = ping("example.com", 3)) == SUCCESS)
 		printf("✅ Valid domain name 'example.com' ping test: Passed\n");
