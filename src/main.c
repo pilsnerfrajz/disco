@@ -71,7 +71,7 @@ static int default_scan(FILE *fp, char *target)
 	rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &is_open_port, &is_up, NULL);
 	if (rv != SUCCESS || !is_up)
 	{
-		msg = "[-] Host discovery failed. Host is down, aborting scan\n";
+		msg = "[-] Host discovery failed. Host is down, aborting\n";
 		print_wrapper(stderr, fp, msg);
 		return NO_RESPONSE;
 	}
@@ -180,11 +180,12 @@ int main(int argc, char *argv[])
 	int no_host_disc = 0;
 	int force_ping = 0;
 	int force_arp = 0;
+	int force_syn = 0;
 	int show_open = 0;
 	int up = 0;
 	int rv = 0;
 
-	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &write_file) != 0)
+	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &force_syn, &write_file) != 0)
 	{
 		return CLI_PARSE;
 	}
@@ -244,7 +245,24 @@ int main(int argc, char *argv[])
 		up = 1;
 	}
 
-	if (ports == NULL && no_host_disc && !force_arp && !force_ping)
+	if (force_syn)
+	{
+		msg = "[!] Forcing TCP SYN host discovery (skipping ARP and ICMP)\n";
+		print_wrapper(stdout, fp, msg);
+		short is_up = 0;
+		short is_open_port = 0;
+		rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &is_open_port, &is_up, NULL);
+		if (rv != SUCCESS || !is_up)
+		{
+			msg = "[-] TCP SYN host discovery failed. Host is down, aborting\n";
+			print_wrapper(stderr, fp, msg);
+			rv = NO_RESPONSE;
+			goto cleanup;
+		}
+		up = 1;
+	}
+
+	if (ports == NULL && no_host_disc && !force_arp && !force_ping && !force_syn)
 	{
 		msg = "[!] Doing nothing. Use '-p' with the '-n' option!\n\n";
 		print_wrapper(stderr, fp, msg);
@@ -259,7 +277,7 @@ int main(int argc, char *argv[])
 		print_wrapper(stdout, fp, msg);
 	}
 
-	if (!no_host_disc && !force_arp && !force_ping)
+	if (!no_host_disc && !force_arp && !force_ping && !force_syn)
 	{
 		rv = default_scan(fp, target);
 		if (rv != 0)

@@ -24,14 +24,15 @@ static void banner(FILE *stream)
 			"disco - network utility for host discovery and port enumeration\n"
 			"author: pilsnerfrajz\n\n");
 	fprintf(stream,
-			"usage: disco target [-h] [-p port(s)] [-o] [-n] [-P] [-a] [-w file]\n"
+			"usage: disco target [-h] [-p ports] [-o] [-n] [-P] [-a] [-S] [-w file]\n"
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
-			"  -o, --open      : show open ports only (default: open or unknown)\n"
+			"  -o, --open      : show open ports only (default: open or filtered)\n"
 			"  -n, --no-check  : skip host status check\n"
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
-			"  -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
+			"  -a, --arp-only  : force ARP host discovery  (skip ICMP fallback)\n"
+			"  -S, --syn-only  : force SYN host discovery  (skip ARP and ICMP)\n"
 			"  -w, --write     : write results to a file\n"
 			"  -h, --help      : display this message\n");
 }
@@ -45,21 +46,23 @@ void usage(FILE *stream)
 	else
 	{
 		fprintf(stream,
-				"[!] usage: disco target [-h] [-p port(s)] [-o] [-n] [-P] [-a] [-w file]\n"
+				"[!] usage: disco target [-h] [-p ports] [-o] [-n] [-P] [-a] [-S] [-w file]\n"
 				"    options:\n"
 				"      target          : host to scan (IP address or domain)\n"
 				"      -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
-				"      -o, --open      : show open ports only (default: open or unknown)\n"
+				"      -o, --open      : show open ports only (default: open or filtered)\n"
 				"      -n, --no-check  : skip host status check\n"
 				"      -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
-				"      -a, --arp-only  : force ARP host discovery (skip ICMP fallback)\n"
+				"      -a, --arp-only  : force ARP host discovery  (skip ICMP fallback)\n"
+				"      -S, --syn-only  : force SYN host discovery  (skip ARP and ICMP)\n"
 				"      -w, --write     : write results to a file\n"
 				"      -h, --help      : display this message\n");
 	}
 }
 
 int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_open,
-			  int *no_host_disc, int *force_ping, int *force_arp, char **write_file)
+			  int *no_host_disc, int *force_ping, int *force_arp, int *force_syn,
+			  char **write_file)
 {
 	/* Reset optind for multiple tests to work properly*/
 	optind = 1;
@@ -98,6 +101,12 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 				'a',
 			},
 			{
+				"syn-only",
+				no_argument,
+				NULL,
+				'S',
+			},
+			{
 				"open",
 				no_argument,
 				NULL,
@@ -112,7 +121,7 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 			{0, 0, 0, 0}};
 
 	int option;
-	while ((option = getopt_long(argc, argv, "p:nhPaow:", options, NULL)) != -1)
+	while ((option = getopt_long(argc, argv, "p:nhPaSow:", options, NULL)) != -1)
 	{
 		switch (option)
 		{
@@ -167,6 +176,9 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 		case 'a':
 			*force_arp = 1;
 			break;
+		case 'S':
+			*force_syn = 1;
+			break;
 		case 'h':
 			usage(stdout);
 			return CLI_PARSE;
@@ -220,9 +232,9 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 		}
 	}
 
-	if (*force_arp + *force_ping + *no_host_disc > 1)
+	if (*force_arp + *force_ping + *force_syn + *no_host_disc > 1)
 	{
-		fprintf(stderr, "[-] Conflicting options. Only one of -P, -a and -n can be used at once\n");
+		fprintf(stderr, "[-] Conflicting options. Only one of -P, -a, -S and -n can be used at once\n");
 		usage(stderr);
 		return CLI_PARSE;
 	}
