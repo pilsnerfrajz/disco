@@ -65,6 +65,7 @@ struct callback_data
 {
 	short loopback_flag;
 	short any_open; /* Flag if any open port is found */
+	short is_up;	/* Flag if host is up */
 	volatile short port_status[65536];
 };
 
@@ -143,6 +144,11 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 			/* Invalid IP version */
 			return;
 		}
+	}
+
+	if (tcp_hdr->flags)
+	{
+		c_data->is_up = 1;
 	}
 
 	if ((tcp_hdr->flags & SYN_ACK) == SYN_ACK)
@@ -857,6 +863,7 @@ int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int port_count,
 			  short *is_open_port,
+			  short *is_up,
 			  unsigned short **result_arr)
 {
 	if (test_print)
@@ -1102,6 +1109,7 @@ int port_scan(char *address,
 	}
 
 	*is_open_port = c_data.any_open;
+	*is_up = c_data.is_up;
 
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)
