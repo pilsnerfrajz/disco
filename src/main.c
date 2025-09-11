@@ -13,6 +13,9 @@
 
 #define RETRIES 3
 #define MSG_BUF_SIZE 2048
+#define DISCOVERY_PORT_COUNT 3
+
+static unsigned short discovery_ports[DISCOVERY_PORT_COUNT] = {22, 80, 443};
 
 /**
  * @brief Print a message to a stream and to a file if provided.
@@ -55,10 +58,21 @@ static int default_scan(FILE *fp, char *target)
 	char *msg = "[!] ARP failed, falling back to ICMP\n";
 	print_wrapper(stdout, fp, msg);
 	rv = ping(target, RETRIES);
-	if (rv != SUCCESS)
+	if (rv == SUCCESS)
 	{
-		print_err(stderr, "[-] ping", rv);
-		print_err(fp, "[-] ping", rv);
+		return 0;
+	}
+
+	msg = "[!] Ping failed, falling back to TCP SYN\n";
+	print_wrapper(stdout, fp, msg);
+
+	short is_up = 0;
+	short is_open_port = 0;
+	rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &is_open_port, &is_up, NULL);
+	if (rv != SUCCESS || !is_up)
+	{
+		msg = "[-] Host discovery failed. Host is down, aborting scan\n";
+		print_wrapper(stderr, fp, msg);
 		return NO_RESPONSE;
 	}
 
@@ -278,8 +292,9 @@ int main(int argc, char *argv[])
 		print_wrapper(stdout, fp, msg_buf);
 		memset(msg_buf, 0, MSG_BUF_SIZE);
 		short is_open_port = 0;
+		short is_up = 0;
 
-		rv = port_scan(target, port_arr, port_count, &is_open_port, &res_arr);
+		rv = port_scan(target, port_arr, port_count, &is_open_port, &is_up, &res_arr);
 		if (rv != SUCCESS)
 		{
 			print_err(stderr, "[-] port_scan", rv);
