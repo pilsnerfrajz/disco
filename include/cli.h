@@ -19,6 +19,7 @@ void usage(FILE *stream);
  * @param no_host_disc Flag to skip host discovery.
  * @param force_ping Flag to force ICMP.
  * @param force_arp Flag to force ARP.
+ * @param force_syn Flag to force SYN scan.
  * @param write_file Pointer to store the write_file path.
  * @return int 0 on success, CLI_PARSE on error.
  */
@@ -30,6 +31,7 @@ int parse_cli(int argc,
 			  int *no_host_disc,
 			  int *force_ping,
 			  int *force_arp,
+			  int *force_syn,
 			  char **write_file);
 
 #endif

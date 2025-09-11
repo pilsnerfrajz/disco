@@ -70,15 +70,16 @@ void syn_scan_test(void)
 	}
 
 	short is_open = 0;
+	short is_up = 0;
 
-	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, &is_open, NULL)) == SUCCESS)
+	if ((ret = port_scan("127.0.0.1", test_arr, TEST_ARR_LEN, &is_open, &is_up, NULL)) == SUCCESS)
 		printf("└ ✅ Localhost IPv4 Port scan test: Passed\n");
 	else
 	{
 		print_err(stderr, "└ ❌ Localhost IPv4 Port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, &is_open, NULL)) == SUCCESS)
+	if ((ret = port_scan("::1", test_arr, TEST_ARR_LEN, &is_open, &is_up, NULL)) == SUCCESS)
 		printf("└ ✅ Localhost IPv6 Port scan test: Passed\n");
 	else
 	{
@@ -101,7 +102,7 @@ void syn_scan_test(void)
 
 	if (ping(lan_dev, 3) == SUCCESS)
 	{
-		if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, &is_open, NULL)) == SUCCESS)
+		if ((ret = port_scan(lan_dev, test_arr, TEST_ARR_LEN, &is_open, &is_up, NULL)) == SUCCESS)
 			printf("└ ✅ IPv4 LAN device port scan test: Passed\n");
 		else
 		{
@@ -128,14 +129,14 @@ void syn_scan_test(void)
 		print_err(stderr, "❌ IPv6 Lan Port scan test failed", ret);
 	}*/
 
-	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, &is_open, NULL)) == SUCCESS)
+	if ((ret = port_scan("scanme.nmap.org", scanme_ports, 4, &is_open, &is_up, NULL)) == SUCCESS)
 		printf("└ ✅ External IPv4 Port scan test: Passed\n");
 	else
 	{
 		print_err(stderr, "└ ❌ External IPv4 Port scan test failed", ret);
 	}
 
-	if ((ret = port_scan("2600:3c01::f03c:91ff:fe18:bb2f", scanme_ports, 4, &is_open, NULL)) == SUCCESS)
+	if ((ret = port_scan("2600:3c01::f03c:91ff:fe18:bb2f", scanme_ports, 4, &is_open, &is_up, NULL)) == SUCCESS)
 		printf("└ ✅ External IPv6 Port scan test: Passed\n");
 	else
 	{
