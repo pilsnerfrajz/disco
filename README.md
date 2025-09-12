@@ -7,7 +7,7 @@
 ![Github actions](https://img.shields.io/badge/Github%20Actions-%23267.svg)
 ![Library](https://img.shields.io/badge/License-MIT-%2300.svg)
 
-Disco is a cross-platform networking utility available on Linux and macOS. It supports various host discovery methods and offers robust status checks across various networks and configurations, together with fast and reliable port enumeration.
+Disco is a cross-platform networking utility available on Linux and macOS. It supports multiple host discovery methods and offers robust status checks across various networks and configurations, together with fast and reliable port enumeration.
 
 ## Usage
 > [!IMPORTANT]  
