@@ -107,18 +107,22 @@ Some tests may fail due to hardcoded IP addresses and port numbers not accessibl
 The future plan is to implement these tests in a CI pipeline using Docker to ensure working features, regardless of device and network configurations. 
 
 ## Technical Details
-Disco is implemented in C using `libpcap` for frame injection and packet filtering. This section describes the implementation of ARP, ping and port scanning in more detail, for those interested.
+Disco is implemented in C using `libpcap` for frame injection and packet filtering. This section describes the implementation of ARP, ping and port scanning in more detail for those interested.
 
 ### ARP
 Due to restrictions on raw layer 2 sockets in macOS, `libpcap` is used to inject Ethernet frames directly onto the network. ARP frames are manually crafted according to RFC 826 specifications and processed using the library's packet filtering capabilities. The protocol operates at the data link layer (Layer 2) of the OSI model, requiring platform-specific handling of include headers and definitions needed for interface processing of MAC addresses. This is successfully implemented to ensure reliable cross-platform functionality on both Linux and macOS.
 
 ARP is the preferred method for local host discovery because it's fast, reliable, and operates below the network layer where firewalls typically filter traffic. Hosts are required to respond to ARP requests for proper network function. However, ARP is limited to the local network segment, which is why ICMP or SYN scanning, serves as the fallback for external hosts.
 
-### ICMP echo (ping)
+### ICMP Echo Request (Ping)
+ICMP echo packets are manually crafted and sent to targets to check if they are reachable. This implementation supports both IPv4 and IPv6 hosts on loopback and external network interfaces. Received packets are processed to verify that they contain the correct ICMP reply type along with matching source and destination IP addresses. If no reply is received within two seconds, two additional requests are sent before timing out.
 
+Ping supports DNS lookup and resolves domain names to IP addresses for usability. 
+
+ICMP echo requests do not guarantee reliability since the protocol is connectionless, unlike TCP. It is also common for firewalls to block ICMP traffic, which can cause host discovery to fail. When ICMP fails to detect a host, disco falls back to TCP SYN scanning for host discovery. 
 
 ### TCP SYN 
-
+`libpcap` is also utilized to filter packets when conducting a port scan as the macOS kernel seems to intercept raw TCP packets, making them unavailable for processing.
 
 
 
