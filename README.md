@@ -52,7 +52,7 @@ sudo ./bin/disco 127.0.0.1 -n -p 1-65535
 ```bash
 git clone https://github.com/pilsnerfrajz/disco.git
 ```
-2. Access it
+2. Navigate to the project directory
 ```bash
 cd disco
 ```
