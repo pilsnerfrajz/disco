@@ -73,7 +73,7 @@ Disco uses [libpcap](https://www.tcpdump.org/) to enable macOS users to send raw
 ### Debian-based Systems
 Update repositories and install `libpcap`
 ```bash
-sudo apt-get update && sudo apt-get install -y libpcap-dev
+sudo apt update && sudo apt install -y libpcap-dev
 ```
 
 ### macOS
