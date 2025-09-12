@@ -27,7 +27,7 @@ make
 sudo ./bin/disco
 ```
 
- In case there are issues when building the executable, `libpcap` may not be installed on your system. Follow the steps in the next section to install the required dependencies.
+ In case there are issues while building the executable, `libpcap` may not be installed on your system. Follow the steps in the next section to install the required dependencies.
 
 ## Dependencies
 Disco uses [libpcap](https://www.tcpdump.org/) to enable macOS users to send raw Ethernet frames and to filter received packets. To avoid having to write platform-dependent code, this library is required on Linux as well.
@@ -82,6 +82,8 @@ sudo ./bin/disco 192.168.1.42 -a -w results.txt
 sudo ./bin/disco 127.0.0.1 -n -p 1-65535
 ```
 
+## Folders
+
 ## Testing
 The program includes comprehensive **integration tests** that validate real network functionality. Run with `make test` from the project root to test:
 - ARP 
@@ -105,5 +107,21 @@ Some tests may fail due to hardcoded IP addresses and port numbers not accessibl
 The future plan is to implement these tests in a CI pipeline using Docker to ensure working features, regardless of device and network configurations. 
 
 ## Technical Details
+Disco is implemented in C using `libpcap` for frame injection and packet filtering. This section describes the implementation of ARP, ping and port scanning in more detail, for those interested.
+
+### ARP
+Due to restrictions on raw layer 2 sockets in macOS, `libpcap` is used to inject Ethernet frames directly onto the network. ARP frames are manually crafted according to RFC 826 specifications and processed using the library's packet filtering capabilities. The protocol operates at the data link layer (Layer 2) of the OSI model, requiring platform-specific handling of include headers and definitions needed for interface processing of MAC addresses. This is successfully implemented to ensure reliable cross-platform functionality on both Linux and macOS.
+
+ARP is the preferred method for local host discovery because it's fast, reliable, and operates below the network layer where firewalls typically filter traffic. Hosts are required to respond to ARP requests for proper network function. However, ARP is limited to the local network segment, which is why ICMP or SYN scanning, serves as the fallback for external hosts.
+
+### ICMP echo (ping)
+
+
+### TCP SYN 
+
+
+
+
+
 
 ## License
