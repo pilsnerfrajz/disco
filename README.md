@@ -2,7 +2,7 @@
 
 # 🪩 Disco
 ![Language](https://img.shields.io/badge/Language-C-%2300599C.svg)
-![Library](https://img.shields.io/badge/Dependencies-libpcap-%230059.svg)
+[![Dependencies](https://img.shields.io/badge/Dependencies-libpcap-%230059.svg)](https://www.tcpdump.org/)
 ![OS](https://img.shields.io/badge/OS-Linux%2C%20macOS-ff8bba)
 ![Github actions](https://img.shields.io/badge/Github%20Actions-%23267.svg)
 ![Library](https://img.shields.io/badge/License-MIT-%2300.svg)
@@ -65,7 +65,7 @@ make
 sudo ./bin/disco
 ```
 
- In case there are issues with building the executable, `libpcap` may not be installed on your system. Follow the steps in the next section to install the required dependencies.
+ In case there are issues when building the executable, `libpcap` may not be installed on your system. Follow the steps in the next section to install the required dependencies.
 
 ## Dependencies
 Disco uses [libpcap](https://www.tcpdump.org/) to enable macOS users to send raw Ethernet frames and to filter received packets. To avoid having to write platform-dependent code, this library is required on Linux as well.
