@@ -1,10 +1,7 @@
-
-
 # 🪩 Disco
-![Language](https://img.shields.io/badge/Language-C-%2300599C.svg)
+[![Language](https://img.shields.io/badge/Language-C-%2300599C.svg)](https://www.c-language.org/)
 [![Dependencies](https://img.shields.io/badge/Dependencies-libpcap-%230059.svg)](https://www.tcpdump.org/)
 ![OS](https://img.shields.io/badge/OS-Linux%2C%20macOS-ff8bba)
-![Github actions](https://img.shields.io/badge/Github%20Actions-%23267.svg)
 [![License](https://img.shields.io/badge/License-MIT-%2300.svg)](https://github.com/pilsnerfrajz/disco/blob/main/LICENSE)
 
 Disco is a cross-platform network utility available on Linux and macOS. It supports multiple host discovery methods and offers robust status checks across various networks and configurations, together with fast and reliable port enumeration.
@@ -109,7 +106,7 @@ The future plan is to implement these tests in a CI pipeline using Docker to ens
 ## Technical Details
 Disco is implemented in C using `libpcap` for frame injection and packet filtering. This section describes the implementation of ARP, ping and port scanning in more detail for those interested.
 
-### ARP
+### Address Resolution Protocol (ARP)
 Due to restrictions on raw layer 2 sockets in macOS, `libpcap` is used to inject Ethernet frames directly onto the network. ARP frames are manually crafted according to RFC 826 specifications and processed using the library's packet filtering capabilities. The protocol operates at the data link layer (Layer 2) of the OSI model, requiring platform-specific handling of include headers and definitions needed for interface processing of MAC addresses. This is successfully implemented to ensure reliable cross-platform functionality on both Linux and macOS.
 
 ARP is the preferred method for local host discovery because it's fast, reliable, and operates below the network layer where firewalls typically filter traffic. Hosts are required to respond to ARP requests for proper network function. However, ARP is limited to the local network segment, which is why ICMP or SYN scanning, serves as the fallback for external hosts.
@@ -122,7 +119,25 @@ Ping supports DNS lookup and resolves domain names to IP addresses for usability
 ICMP echo requests do not guarantee reliability since the protocol is connectionless, unlike TCP. It is also common for firewalls to block ICMP traffic, which can cause host discovery to fail. When ICMP fails to detect a host, disco falls back to TCP SYN scanning for host discovery. 
 
 ### TCP SYN 
-`libpcap` is also utilized to filter packets when conducting a port scan as the macOS kernel seems to intercept raw TCP packets, making them unavailable for processing.
+A TCP SYN scan is used when both ARP and ping fail. The current implementation scans the target on port 22, 80 and 443 as they are commonly used. If any type of reply is sent back, the host is up. This principle is used for port scanning as well. Manual TCP segments are created with the SYN flag set, indicating that disco wants to start a conversation on the target port. If the target port is listening for connections, it will reply with a SYN-ACK flag. If it is not, a RST flag will be sent back. Below is an illustration of how the way the TCP 3-way handshake is used to determine if a port is open or closed.
+
+**Open port**
+```
+Disco       SYN   ->  Target
+Disco  <- SYN-ACK     Target
+Disco       RST   ->  Target
+Disco  <-   ACK       Target (Only with VPN)
+```
+
+**Closed port**
+```
+Disco       SYN   ->  Target
+Disco  <-   RST       Target
+```
+
+After creating the proper header, it is sent to the target. With the use of multi-threading, packets can be sent in rapid succession to the next port, while listening for replies in a separate thread. This speeds up the scans significantly and allows for fast enumeration. The replies from the target are filtered with `libpcap`, similar to in the ARP implementation. It seems that normal socket operations are not always possible due to macOS restrictions. In this case, the macOS kernel seems to intercept raw TCP segments before they reach socket-related functions like `recv()`, but this is not an issue with `libpcap`. 
+
+After capturing the replies, the packets are parsed manually and the TCP flags are inspected. If a SYN-ACK is received, the port is marked as open. When using a VPN, the SYN-ACKs are sometimes not captured, but instead an ACK reply after disco closes the connection with a RST flag. This seems to come from the VPN infrastructure and should never arrive unless the target port is open as seen in the illustration above. 
 
 
 
