@@ -68,14 +68,16 @@ options:
 ```
 
 ### Examples
+**Simple scan**
 ```bash
-# Simple scan
 sudo ./bin/disco scanme.nmap.org -p 22,80,443
-
-# Use ARP to check host status and write results to a file
+```
+**Use ARP to check host status and write results to a file**
+```bash
 sudo ./bin/disco 192.168.1.42 -a -w results.txt
-
-# Check for open local ports. Skip host check since we know we are alive
+```
+**Check for open local ports and skip host check**
+```bash
 sudo ./bin/disco 127.0.0.1 -n -p 1-65535
 ```
 
@@ -135,12 +137,8 @@ Disco       SYN   ->  Target
 Disco  <-   RST       Target
 ```
 
-After creating the proper header, it is sent to the target. With the use of multi-threading, packets can be sent in rapid succession to the next port, while listening for replies in a separate thread. This speeds up the scans significantly and allows for fast enumeration. The replies from the target are filtered with `libpcap`, similar to in the ARP implementation. It seems that normal socket operations are not always possible due to macOS restrictions. In this case, the macOS kernel seems to intercept raw TCP segments before they reach socket-related functions like `recv()`, but this is not an issue with `libpcap`. 
+After creating the proper header, it is sent to the target. With the use of multi-threading, packets can be sent in rapid succession to the next port, while listening for replies in a separate thread. This speeds up the scans significantly and allows for fast enumeration. The replies from the target are filtered with `libpcap`, similar to in the ARP implementation. It seems that normal socket operations are not always possible due to macOS restrictions. In this case, the macOS kernel appears to intercept raw TCP segments before they reach socket-related functions like `recv()`, but this is not an issue with `libpcap`. 
 
 After capturing the replies, the packets are parsed manually and the TCP flags are inspected. If a SYN-ACK is received, the port is marked as open. When using a VPN, the SYN-ACKs are sometimes not captured, but instead an ACK reply after disco closes the connection with a RST flag. This seems to come from the VPN infrastructure and should never arrive unless the target port is open as seen in the illustration above. 
 
-
-
-
-
-## License
+A total of three attempts will be made for each port, unless it has already been detected as open. Any port that does not send a reply back will be seen as filtered. This does not say anything about the state of the port and could be due to network issues or firewall blocking. 
