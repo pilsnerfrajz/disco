@@ -1,11 +1,9 @@
-<h1 align="center">Disco 🪩</h1>
-<h2 align="center">
+# Disco 🪩
 
 [![Language](https://img.shields.io/badge/Language-C-%2300599C.svg)](https://www.c-language.org/)
 [![Dependencies](https://img.shields.io/badge/Dependencies-libpcap-%230059.svg)](https://www.tcpdump.org/)
 ![OS](https://img.shields.io/badge/OS-Linux%2C%20macOS-ff8bba)
 [![License](https://img.shields.io/badge/License-MIT-%2300.svg)](https://github.com/pilsnerfrajz/disco/blob/main/LICENSE)
-</h2>
 
 Disco is a cross-platform network utility available on Linux and macOS. It supports multiple host discovery methods and offers robust status checks across various networks and configurations, together with fast and reliable port enumeration.
 
