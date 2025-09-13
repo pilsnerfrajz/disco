@@ -1,10 +1,13 @@
-# 🪩 Disco
+<div style="text-align: center;">
+<h1>Disco 🪩</h1>
+
 [![Language](https://img.shields.io/badge/Language-C-%2300599C.svg)](https://www.c-language.org/)
 [![Dependencies](https://img.shields.io/badge/Dependencies-libpcap-%230059.svg)](https://www.tcpdump.org/)
 ![OS](https://img.shields.io/badge/OS-Linux%2C%20macOS-ff8bba)
 [![License](https://img.shields.io/badge/License-MIT-%2300.svg)](https://github.com/pilsnerfrajz/disco/blob/main/LICENSE)
-
+</div>
 Disco is a cross-platform network utility available on Linux and macOS. It supports multiple host discovery methods and offers robust status checks across various networks and configurations, together with fast and reliable port enumeration.
+
 
 ## Installation
 1. Clone the repository
@@ -141,4 +144,4 @@ After creating the proper header, it is sent to the target. With the use of mult
 
 After capturing the replies, the packets are parsed manually and the TCP flags are inspected. If a SYN-ACK is received, the port is marked as open. When using a VPN, the SYN-ACKs are sometimes not captured, but instead an ACK reply after disco closes the connection with a RST flag. This seems to come from the VPN infrastructure and should never arrive unless the target port is open as seen in the illustration above. 
 
-A total of three attempts will be made for each port, unless it has already been detected as open. Any port that does not send a reply back will be seen as filtered. This does not say anything about the state of the port and could be due to network issues or firewall blocking. 
+A total of three attempts will be made for each port, unless it has already been detected as open. Any port that does not send a reply back will be seen as filtered. However, this does not say anything about the state of the port and could be due to network issues or firewall blocking. 
