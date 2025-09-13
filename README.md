@@ -133,7 +133,7 @@ Ping supports DNS lookup and resolves domain names to IP addresses for usability
 ICMP echo requests do not guarantee reliability since the protocol is connectionless, unlike TCP. It is also common for firewalls to block ICMP traffic, which can cause host discovery to fail. When ICMP fails to detect a host, disco falls back to TCP SYN scanning for host discovery. 
 
 ### TCP SYN Scanning
-A TCP SYN scan is used when both ARP and ping fail. The current implementation scans the target on port 22, 80 and 443 as they are commonly used. If any type of reply is sent back, the host is up. This principle is used for port scanning as well. Manual TCP segments are created with the SYN flag set, indicating that disco wants to start a conversation on the target port. If the target port is listening for connections, it will reply with a SYN-ACK flag. If it is not, a RST flag will be sent back. Below is an illustration of how the TCP 3-way handshake is used to determine if a port is open or closed.
+A TCP SYN scan is used for host discovery when both ARP and ping fail. The current implementation scans the target on port 22, 80 and 443 as they are commonly used ports. If any type of reply is sent back, the host is up. This principle is used for port scanning as well. Manual TCP segments are created with the SYN flag set, indicating that disco wants to start a conversation on the target port. If the target port is listening for connections, it will reply with a SYN-ACK flag. If it is not, a RST flag will be sent back. Below is an illustration of how the TCP 3-way handshake is used to determine if a port is open or closed.
 
 **Open port**
 ```
