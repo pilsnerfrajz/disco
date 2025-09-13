@@ -8,6 +8,19 @@
 </div>
 Disco is a cross-platform network utility available on Linux and macOS. It supports multiple host discovery methods and offers robust status checks across various networks and configurations, together with fast and reliable port enumeration.
 
+## Table of Contents
+- [Installation](#installation)
+- [Dependencies](#dependencies)
+   - [Debian-based Systems](#debian-based-systems)
+   - [macOS](#macos)
+- [Usage](#usage)
+   - [Examples](#examples)
+- [Testing](#testing)
+- [Technical Details](#technical-details)
+   - [Address Resolution Protocol (ARP)](#address-resolution-protocol-arp)
+   - [ICMP Echo Request (Ping)](#icmp-echo-request-ping)
+   - [TCP SYN Scanning](#tcp-syn-scanning)
+
 
 ## Installation
 1. Clone the repository
@@ -84,8 +97,6 @@ sudo ./bin/disco 192.168.1.42 -a -w results.txt
 sudo ./bin/disco 127.0.0.1 -n -p 1-65535
 ```
 
-## Folders
-
 ## Testing
 The program includes comprehensive **integration tests** that validate real network functionality. Run with `make test` from the project root to test:
 - ARP 
@@ -123,7 +134,7 @@ Ping supports DNS lookup and resolves domain names to IP addresses for usability
 
 ICMP echo requests do not guarantee reliability since the protocol is connectionless, unlike TCP. It is also common for firewalls to block ICMP traffic, which can cause host discovery to fail. When ICMP fails to detect a host, disco falls back to TCP SYN scanning for host discovery. 
 
-### TCP SYN 
+### TCP SYN Scanning
 A TCP SYN scan is used when both ARP and ping fail. The current implementation scans the target on port 22, 80 and 443 as they are commonly used. If any type of reply is sent back, the host is up. This principle is used for port scanning as well. Manual TCP segments are created with the SYN flag set, indicating that disco wants to start a conversation on the target port. If the target port is listening for connections, it will reply with a SYN-ACK flag. If it is not, a RST flag will be sent back. Below is an illustration of how the TCP 3-way handshake is used to determine if a port is open or closed.
 
 **Open port**
