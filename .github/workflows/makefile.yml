@@ -9,8 +9,11 @@ on:
       - 'Makefile'
 
 jobs:
-  ubuntu-build:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
@@ -20,16 +23,5 @@ jobs:
     - name: Install dependencies
       run: sudo apt update && sudo apt install -y libpcap-dev
     
-    - name: Compile
-      run: make
-
-  arm-build: 
-    runs-on: macos-latest
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-          fetch-depth: 0
-          
     - name: Compile
       run: make
