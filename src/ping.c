@@ -70,7 +70,8 @@ struct icmp create_icmp4_echo_req_hdr(int seq)
 }
 
 /**
- * @brief Receives the ICMP echo reply and parses it to get the ICMP header.
+ * @brief Receives the ICMP echo reply and parses it to get the ICMP header. The
+ * caller is responsible for freeing the returned struct.
  *
  * @param sfd The socket file descriptor.
  * @param dst The `addrinfo*` struct of the target address.
@@ -107,11 +108,18 @@ struct icmp *get_icmp4_reply_hdr(int sfd)
 			continue;
 		}
 
-		struct icmp *reply_hdr = (struct icmp *)(recvbuf + ip_len);
+		struct icmp *reply_hdr = malloc(sizeof(struct icmp));
+		if (reply_hdr == NULL)
+		{
+			return NULL;
+		}
+		memcpy(reply_hdr, recvbuf + ip_len, sizeof(struct icmp));
 		if (reply_hdr->icmp_type == ICMP_ECHOREPLY)
 		{
 			return reply_hdr;
 		}
+		/* Free memory if reply is not an echo reply */
+		free(reply_hdr);
 	}
 	return NULL;
 }
@@ -141,7 +149,8 @@ int verify_icmp4_reply_hdr(struct icmp *reply_hdr, int seq)
 }
 
 /**
- * @brief Receives the ICMP6 echo reply and parses it to get the ICMP6 header.
+ * @brief Receives the ICMP6 echo reply and parses it to get the ICMP6 header. The
+ * caller is responsible for freeing the returned struct.
  *
  * @param sfd The socket file descriptor.
  * @param dst The `addrinfo*` struct of the target address.
@@ -160,11 +169,18 @@ struct icmp6_hdr *get_icmp6_reply_hdr(int sfd)
 			return NULL;
 		}
 
-		struct icmp6_hdr *reply_hdr = (struct icmp6_hdr *)(recvbuf);
+		struct icmp6_hdr *reply_hdr = malloc(sizeof(struct icmp6_hdr));
+		if (reply_hdr == NULL)
+		{
+			return NULL;
+		}
+		memcpy(reply_hdr, recvbuf, sizeof(struct icmp6_hdr));
 		if (reply_hdr->icmp6_type == ICMP6_ECHO_REPLY)
 		{
 			return reply_hdr;
 		}
+		/* Free memory if reply is not an echo reply */
+		free(reply_hdr);
 	}
 	return NULL;
 }
@@ -261,8 +277,10 @@ int ping(char *address, int tries)
 			if (rv == 0)
 			{
 				host_is_up = 1;
+				free(reply_hdr);
 				break;
 			}
+			free(reply_hdr);
 		}
 	}
 
@@ -307,17 +325,20 @@ int ping(char *address, int tries)
 			}
 			if (reply_hdr->icmp6_type != ICMP6_ECHO_REPLY)
 			{
+				free(reply_hdr);
 				continue;
 			}
 			if (ntohs(reply_hdr->icmp6_seq) != seq)
 			{
+				free(reply_hdr);
 				continue;
 			}
 			if (ntohs(reply_hdr->icmp6_id) != (getpid() & 0xffff))
 			{
+				free(reply_hdr);
 				continue;
 			}
-
+			free(reply_hdr);
 			host_is_up = 1;
 			break;
 		}
