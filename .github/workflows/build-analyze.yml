@@ -1,13 +1,47 @@
-name: "CodeQL Advanced"
+name: "Build and Run CodeQL Analysis"
 
 on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'Makefile'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'include/**'
+      - 'Makefile'
+  schedule:
+    - cron: '00 23 1 * *'
 
 jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpcap-dev
+
+    - name: Build
+      run: make
+
   analyze:
     name: Analyze (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    needs: build
     permissions:
       security-events: write
       packages: read
