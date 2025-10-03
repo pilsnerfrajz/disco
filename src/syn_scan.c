@@ -66,6 +66,8 @@ struct callback_data
 	short loopback_flag;
 	short any_open; /* Flag if any open port is found */
 	short is_up;	/* Flag if host is up */
+	u_int8_t ttl;	/* TTL from received IP header */
+	short ttl_set;
 	volatile short port_status[65536];
 };
 
@@ -1109,6 +1111,7 @@ int port_scan(char *address,
 
 	target_info->is_open_port = c_data.any_open;
 	target_info->is_up = c_data.is_up;
+	target_info->ttl = c_data.ttl_set ? c_data.ttl : 0;
 
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)
