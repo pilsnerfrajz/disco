@@ -18,7 +18,7 @@ void fingerprint_tests(void)
 	{
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
-		if (determine_os(&finger) == LINUX_OS)
+		if (determine_os(&finger) == LINUX_LIKE_OS)
 			printf("✅ Fingerprint of Linux host test: Passed\n");
 		else
 			fprintf(stderr, "❌ Fingerprint of Linux host test failed: Detected OS %d\n", determine_os(&finger));
@@ -54,7 +54,7 @@ void fingerprint_tests(void)
 	{
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
-		if (determine_os(&finger) == MAC_BSD_OS)
+		if (determine_os(&finger) == BSD_LIKE_OS)
 			printf("✅ Fingerprint of mac host test: Passed\n");
 		else
 			fprintf(stderr, "❌ Fingerprint of mac host test failed: Detected OS %d\n", determine_os(&finger));
@@ -72,14 +72,14 @@ void fingerprint_tests(void)
 	{
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
-		if (determine_os(&finger) == ROUTER_OS)
-			printf("✅ Fingerprint of router host test: Passed\n");
+		if (determine_os(&finger) == LINUX_LIKE_OS)
+			printf("✅ Fingerprint of Linux router test: Passed\n");
 		else
-			fprintf(stderr, "❌ Fingerprint of router host test failed: Detected OS %d\n", determine_os(&finger));
+			fprintf(stderr, "❌ Fingerprint of Linux router test failed: Detected OS %d\n", determine_os(&finger));
 	}
 	else
 	{
 		print_err(stderr, "Port_scan", ret);
-		fprintf(stderr, "❌ Fingerprint of router host test failed: Detected OS %d\n", determine_os(&finger));
+		fprintf(stderr, "❌ Fingerprint of Linux router test failed: Detected OS %d\n", determine_os(&finger));
 	}
 }
