@@ -68,6 +68,8 @@ struct callback_data
 	short is_up;	/* Flag if host is up */
 	u_int8_t ttl;	/* TTL from received IP header */
 	short ttl_set;
+	u_int16_t window_size; /* Window size from received TCP header */
+	short winsize_set;
 	volatile short port_status[65536];
 };
 
@@ -179,6 +181,15 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
 		c_data->any_open = 1;
+
+		if (!c_data->winsize_set)
+		{
+			if (ntohs(tcp_hdr->window) > 0)
+			{
+				c_data->window_size = ntohs(tcp_hdr->window);
+				c_data->winsize_set = 1;
+			}
+		}
 	}
 	else if (tcp_hdr->flags & RST)
 	{
@@ -1134,6 +1145,7 @@ int port_scan(char *address,
 	target_info->is_open_port = c_data.any_open;
 	target_info->is_up = c_data.is_up;
 	target_info->ttl = c_data.ttl_set ? c_data.ttl : 0;
+	target_info->window_size = c_data.winsize_set ? c_data.window_size : 0;
 
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)
