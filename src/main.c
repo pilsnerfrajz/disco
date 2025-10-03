@@ -15,6 +15,13 @@
 #define MSG_BUF_SIZE 2048
 #define DISCOVERY_PORT_COUNT 3
 
+struct target_info
+{
+	short is_open_port;
+	short is_up;
+	u_int8_t ttl;
+};
+
 static unsigned short discovery_ports[DISCOVERY_PORT_COUNT] = {22, 80, 443};
 
 /**
