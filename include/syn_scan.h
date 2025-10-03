@@ -5,6 +5,13 @@
 #define OPEN 1
 #define CLOSED 2
 
+struct target_info
+{
+	short is_open_port;
+	short is_up;
+	u_int8_t ttl;
+};
+
 /**
  * @brief Performs a SYN scan on the specified ports of a target address or
  * domain. If `print_state` is true, the open ports will be printed. An array
@@ -25,8 +32,7 @@
 int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int count,
-			  short *is_open_port,
-			  short *is_up,
+			  struct target_info *info,
 			  unsigned short **result_arr);
 
 /**
