@@ -15,13 +15,6 @@
 #define MSG_BUF_SIZE 2048
 #define DISCOVERY_PORT_COUNT 3
 
-struct target_info
-{
-	short is_open_port;
-	short is_up;
-	u_int8_t ttl;
-};
-
 static unsigned short discovery_ports[DISCOVERY_PORT_COUNT] = {22, 80, 443};
 
 /**
@@ -54,7 +47,7 @@ static int print_wrapper(FILE *stream, FILE *fp, const char *msg)
  * @param target The target address to check.
  * @return `int` 0 on success, `NO_RESPONSE` if an error occurs.
  */
-static int default_scan(FILE *fp, char *target)
+static int default_scan(FILE *fp, char *target, struct target_info *target_info)
 {
 	int rv = arp(target);
 	if (rv == SUCCESS)
@@ -73,10 +66,10 @@ static int default_scan(FILE *fp, char *target)
 	msg = "[!] Ping failed, falling back to TCP SYN\n";
 	print_wrapper(stdout, fp, msg);
 
-	short is_up = 0;
-	short is_open_port = 0;
-	rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &is_open_port, &is_up, NULL);
-	if (rv != SUCCESS || !is_up)
+	target_info->is_open_port = 0;
+	target_info->is_up = 0;
+	rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, target_info, NULL);
+	if (rv != SUCCESS || !target_info->is_up)
 	{
 		msg = "[-] Host discovery failed. Host is down, aborting\n";
 		print_wrapper(stderr, fp, msg);
@@ -192,6 +185,8 @@ int main(int argc, char *argv[])
 	int up = 0;
 	int rv = 0;
 
+	struct target_info target_info = {0};
+
 	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &force_syn, &write_file) != 0)
 	{
 		return CLI_PARSE;
@@ -256,10 +251,10 @@ int main(int argc, char *argv[])
 	{
 		msg = "[!] Forcing TCP SYN host discovery (skipping ARP and ICMP)\n";
 		print_wrapper(stdout, fp, msg);
-		short is_up = 0;
-		short is_open_port = 0;
-		rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &is_open_port, &is_up, NULL);
-		if (rv != SUCCESS || !is_up)
+		target_info.is_open_port = 0;
+		target_info.is_up = 0;
+		rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &target_info, NULL);
+		if (rv != SUCCESS || !target_info.is_up)
 		{
 			msg = "[-] TCP SYN host discovery failed. Host is down, aborting\n";
 			print_wrapper(stderr, fp, msg);
@@ -286,7 +281,7 @@ int main(int argc, char *argv[])
 
 	if (!no_host_disc && !force_arp && !force_ping && !force_syn)
 	{
-		rv = default_scan(fp, target);
+		rv = default_scan(fp, target, &target_info);
 		if (rv != 0)
 		{
 			goto cleanup;
@@ -316,17 +311,18 @@ int main(int argc, char *argv[])
 		snprintf(msg_buf, MSG_BUF_SIZE, "[*] Scanning %d port(s) on %s...\n", port_count, target);
 		print_wrapper(stdout, fp, msg_buf);
 		memset(msg_buf, 0, MSG_BUF_SIZE);
-		short is_open_port = 0;
-		short is_up = 0;
 
-		rv = port_scan(target, port_arr, port_count, &is_open_port, &is_up, &res_arr);
+		target_info.is_open_port = 0;
+		target_info.is_up = 0;
+
+		rv = port_scan(target, port_arr, port_count, &target_info, &res_arr);
 		if (rv != SUCCESS)
 		{
 			print_err(stderr, "[-] port_scan", rv);
 			goto cleanup;
 		}
 
-		if (is_open_port)
+		if (target_info.is_open_port)
 		{
 			print_wrapper(stdout, fp, "[+] Port scan results:\n");
 			print_open_ports(res_arr, port_arr, port_count, show_open, fp);

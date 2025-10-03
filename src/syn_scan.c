@@ -862,8 +862,7 @@ static int send_syn(int sfd,
 int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int port_count,
-			  short *is_open_port,
-			  short *is_up,
+			  struct target_info *target_info,
 			  unsigned short **result_arr)
 {
 	if (test_print)
@@ -1108,8 +1107,8 @@ int port_scan(char *address,
 		printf("│ %d ports are closed\n", port_count - open_count);
 	}
 
-	*is_open_port = c_data.any_open;
-	*is_up = c_data.is_up;
+	target_info->is_open_port = c_data.any_open;
+	target_info->is_up = c_data.is_up;
 
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)
