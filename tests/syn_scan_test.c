@@ -142,15 +142,6 @@ void syn_scan_test(void)
 		print_err(stderr, "└ ❌ External IPv6 Port scan test failed", ret);
 	}
 
-	if (target_info.ttl <= 64)
-	{
-		printf("└ ✅ scanme.nmap.org TTL/Hop Limit test: Passed (Likely Linux: %d)\n", target_info.ttl);
-	}
-	else
-	{
-		printf("❌ scanme.nmap.org TTL/Hop Limit test: Failed (Value: %d)\n", target_info.ttl);
-	}
-
 	free(all_ports);
 	free(parse_test_ports);
 }
