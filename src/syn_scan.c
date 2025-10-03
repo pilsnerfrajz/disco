@@ -98,6 +98,11 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		{
 			return;
 		}
+		if (!c_data->ttl_set)
+		{
+			c_data->ttl = ip_hdr->ip_ttl;
+			c_data->ttl_set = 1;
+		}
 		int ip_len = ip_hdr->ip_hl * 4;
 		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
 	}
@@ -108,6 +113,11 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
 		{
 			return;
+		}
+		if (!c_data->ttl_set)
+		{
+			c_data->ttl = ip6_hdr->ip6_hlim;
+			c_data->ttl_set = 1;
 		}
 		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
 	}
@@ -125,6 +135,12 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		/* Check if IPv4 */
 		if (ip_hdr->ip_v == 4 && ip_hdr->ip_p == IP_PROTO_TCP)
 		{
+			if (!c_data->ttl_set)
+			{
+				c_data->ttl = ip_hdr->ip_ttl;
+				c_data->ttl_set = 1;
+			}
+
 			int ip_len = ip_hdr->ip_hl * 4;
 			tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
 		}
@@ -132,6 +148,12 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		else if (ip_hdr->ip_v == 6)
 		{
 			struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + skip_null);
+			if (!c_data->ttl_set)
+			{
+				c_data->ttl = ip6_hdr->ip6_hlim;
+				c_data->ttl_set = 1;
+			}
+
 			if (ip6_hdr->ip6_nxt == IP_PROTO_TCP)
 			{
 				tcp_hdr = (tcp_header_t *)(bytes + skip_null + sizeof(struct ip6_hdr));
