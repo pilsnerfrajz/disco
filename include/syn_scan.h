@@ -24,15 +24,16 @@ struct target_info
  * @param address The target address to scan.
  * @param port_arr The array of ports to scan.
  * @param count The number of ports in the array.
- * @param is_open_port Whether any open ports were found.
- * @param is_up Whether the host is up.
+ * @param target_info Pointer to a `target_info` struct to store information
+ * about the target.
  * @param result_arr Pointer to an array to store the results of the scan.
- * @return `int` Returns SUCCESS on success, or an error code from `error.h` on failure.
+ * @return `int` Returns SUCCESS on success, or an error code from `error.h` on
+ * failure.
  */
 int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int count,
-			  struct target_info *info,
+			  struct target_info *target_info,
 			  unsigned short **result_arr);
 
 /**
