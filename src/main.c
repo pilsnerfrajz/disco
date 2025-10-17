@@ -183,13 +183,16 @@ int main(int argc, char *argv[])
 	int force_arp = 0;
 	int force_syn = 0;
 	int show_open = 0;
+	int fingerprint_os = 0;
 	int up = 0;
 	int rv = 0;
 
 	struct target_info target_info = {0};
 	struct fingerprint finger = {0};
 
-	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &force_syn, &write_file) != 0)
+	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc,
+				  &force_ping, &force_arp, &force_syn, &fingerprint_os,
+				  &write_file) != 0)
 	{
 		return CLI_PARSE;
 	}
@@ -249,7 +252,7 @@ int main(int argc, char *argv[])
 		up = 1;
 	}
 
-	if (force_syn)
+	if (!fingerprint_os && force_syn)
 	{
 		msg = "[!] Forcing TCP SYN host discovery (skipping ARP and ICMP)\n";
 		print_wrapper(stdout, fp, msg);
