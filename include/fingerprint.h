@@ -22,6 +22,12 @@ struct fingerprint
 	u_int16_t window_size;
 };
 
+/**
+ * @brief Determine the operating system based on the fingerprint.
+ *
+ * @param finger Pointer to the fingerprint structure.
+ * @return int The detected operating system.
+ */
 int determine_os(struct fingerprint *finger);
 
 #endif
