@@ -306,6 +306,12 @@ int main(int argc, char *argv[])
 		if (target_info.ttl == 0)
 		{
 			rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &target_info, NULL);
+			if (rv != SUCCESS)
+			{
+				msg = "[-] Fingerprinting failed, aborting\n";
+				print_wrapper(stderr, fp, msg);
+				goto cleanup;
+			}
 		}
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
