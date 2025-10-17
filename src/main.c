@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 		up = 1;
 	}
 
-	if (!fingerprint_os && force_syn)
+	if (force_syn)
 	{
 		msg = "[!] Forcing TCP SYN host discovery (skipping ARP and ICMP)\n";
 		print_wrapper(stdout, fp, msg);
@@ -301,6 +301,36 @@ int main(int argc, char *argv[])
 		memset(msg_buf, 0, MSG_BUF_SIZE);
 	}
 
+	if (fingerprint_os && ports == NULL)
+	{
+		if (target_info.ttl == 0)
+		{
+			rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &target_info, NULL);
+		}
+		finger.ttl = target_info.ttl;
+		finger.window_size = target_info.window_size;
+		int os = determine_os(&finger);
+		switch (os)
+		{
+		case LINUX_LIKE_OS:
+			msg = "[+] Detected OS: Linux-like\n";
+			break;
+		case BSD_LIKE_OS:
+			msg = "[+] Detected OS: BSD-like\n";
+			break;
+		case WINDOWS_OS:
+			msg = "[+] Detected OS: Windows\n";
+			break;
+		case CISCO_OS:
+			msg = "[+] Detected OS: Cisco\n";
+			break;
+		default:
+			msg = "[+] Detected OS: Unknown\n";
+			break;
+		}
+		print_wrapper(stdout, fp, msg);
+	}
+
 	if (ports != NULL)
 	{
 		int port_count = 0;
@@ -337,6 +367,29 @@ int main(int argc, char *argv[])
 			msg = "[!] No open port(s) found\n";
 			print_wrapper(stdout, fp, msg);
 		}
+
+		finger.ttl = target_info.ttl;
+		finger.window_size = target_info.window_size;
+		int os = determine_os(&finger);
+		switch (os)
+		{
+		case LINUX_LIKE_OS:
+			msg = "[+] Detected OS: Linux-like\n";
+			break;
+		case BSD_LIKE_OS:
+			msg = "[+] Detected OS: BSD-like\n";
+			break;
+		case WINDOWS_OS:
+			msg = "[+] Detected OS: Windows\n";
+			break;
+		case CISCO_OS:
+			msg = "[+] Detected OS: Cisco\n";
+			break;
+		default:
+			msg = "[+] Detected OS: Unknown\n";
+			break;
+		}
+		print_wrapper(stdout, fp, msg);
 	}
 
 	if (fp != NULL)
