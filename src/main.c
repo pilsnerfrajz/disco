@@ -187,6 +187,7 @@ int main(int argc, char *argv[])
 	int rv = 0;
 
 	struct target_info target_info = {0};
+	struct fingerprint finger = {0};
 
 	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &force_syn, &write_file) != 0)
 	{
