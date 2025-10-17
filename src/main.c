@@ -10,6 +10,7 @@
 #include "../include/arp.h"
 #include "../include/ping.h"
 #include "../include/syn_scan.h"
+#include "../include/fingerprint.h"
 
 #define RETRIES 3
 #define MSG_BUF_SIZE 2048
