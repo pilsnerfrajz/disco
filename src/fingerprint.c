@@ -5,9 +5,6 @@
 
 int determine_os(struct fingerprint *finger)
 {
-	// TODO Remove debug print
-	printf("TTL: %d, Window Size: %d\n", finger->ttl, finger->window_size);
-
 	if (finger->ttl == 0 && finger->window_size == 0)
 	{
 		return UNKNOWN_OS;
