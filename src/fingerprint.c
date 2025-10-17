@@ -18,7 +18,7 @@ int determine_os(struct fingerprint *finger)
 		}
 		else
 		{
-			return LINUX_LIKE_OS;
+			return UNIX_LIKE_OS;
 		}
 	}
 	else if (finger->ttl > 64 && finger->ttl <= 128)

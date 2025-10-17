@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 #define UNKNOWN_OS 1
-#define LINUX_LIKE_OS 2
+#define UNIX_LIKE_OS 2
 #define BSD_LIKE_OS 3
 #define WINDOWS_OS 4
 #define CISCO_OS 5

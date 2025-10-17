@@ -318,8 +318,8 @@ int main(int argc, char *argv[])
 		int os = determine_os(&finger);
 		switch (os)
 		{
-		case LINUX_LIKE_OS:
-			msg = "[+] Detected OS: Linux-like\n";
+		case UNIX_LIKE_OS:
+			msg = "[+] Detected OS: Unix-like\n";
 			break;
 		case BSD_LIKE_OS:
 			msg = "[+] Detected OS: BSD-like\n";
@@ -379,8 +379,8 @@ int main(int argc, char *argv[])
 		int os = determine_os(&finger);
 		switch (os)
 		{
-		case LINUX_LIKE_OS:
-			msg = "[+] Detected OS: Linux-like\n";
+		case UNIX_LIKE_OS:
+			msg = "[+] Detected OS: Unix-like\n";
 			break;
 		case BSD_LIKE_OS:
 			msg = "[+] Detected OS: BSD-like\n";
