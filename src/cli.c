@@ -33,6 +33,7 @@ static void banner(FILE *stream)
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 			"  -a, --arp-only  : force ARP host discovery  (skip ICMP fallback)\n"
 			"  -S, --syn-only  : force SYN host discovery  (skip ARP and ICMP)\n"
+			"  -f, --finger    : fingerprint target OS\n"
 			"  -w, --write     : write results to a file\n"
 			"  -h, --help      : display this message\n");
 }
@@ -55,6 +56,7 @@ void usage(FILE *stream)
 				"      -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 				"      -a, --arp-only  : force ARP host discovery  (skip ICMP fallback)\n"
 				"      -S, --syn-only  : force SYN host discovery  (skip ARP and ICMP)\n"
+				"      -f, --finger    : fingerprint target OS\n"
 				"      -w, --write     : write results to a file\n"
 				"      -h, --help      : display this message\n");
 	}
@@ -105,6 +107,12 @@ int parse_cli(int argc, char *argv[], char **target, char **ports, int *show_ope
 				no_argument,
 				NULL,
 				'S',
+			},
+			{
+				"finger",
+				no_argument,
+				NULL,
+				'f',
 			},
 			{
 				"open",
