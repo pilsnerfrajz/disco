@@ -159,6 +159,30 @@ static void print_open_ports(unsigned short *res_arr,
 	}
 }
 
+static void print_os(int os, FILE *fp)
+{
+	char *msg = NULL;
+	switch (os)
+	{
+	case UNIX_LIKE_OS:
+		msg = "[+] Detected OS: Unix-like\n";
+		break;
+	case BSD_LIKE_OS:
+		msg = "[+] Detected OS: BSD-like\n";
+		break;
+	case WINDOWS_OS:
+		msg = "[+] Detected OS: Windows\n";
+		break;
+	case CISCO_OS:
+		msg = "[+] Detected OS: Cisco\n";
+		break;
+	default:
+		msg = "[+] Detected OS: Unknown\n";
+		break;
+	}
+	print_wrapper(stdout, fp, msg);
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc == 1)
@@ -316,25 +340,7 @@ int main(int argc, char *argv[])
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
 		int os = determine_os(&finger);
-		switch (os)
-		{
-		case UNIX_LIKE_OS:
-			msg = "[+] Detected OS: Unix-like\n";
-			break;
-		case BSD_LIKE_OS:
-			msg = "[+] Detected OS: BSD-like\n";
-			break;
-		case WINDOWS_OS:
-			msg = "[+] Detected OS: Windows\n";
-			break;
-		case CISCO_OS:
-			msg = "[+] Detected OS: Cisco\n";
-			break;
-		default:
-			msg = "[+] Detected OS: Unknown\n";
-			break;
-		}
-		print_wrapper(stdout, fp, msg);
+		print_os(os, fp);
 	}
 
 	if (ports != NULL)
@@ -377,25 +383,7 @@ int main(int argc, char *argv[])
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
 		int os = determine_os(&finger);
-		switch (os)
-		{
-		case UNIX_LIKE_OS:
-			msg = "[+] Detected OS: Unix-like\n";
-			break;
-		case BSD_LIKE_OS:
-			msg = "[+] Detected OS: BSD-like\n";
-			break;
-		case WINDOWS_OS:
-			msg = "[+] Detected OS: Windows\n";
-			break;
-		case CISCO_OS:
-			msg = "[+] Detected OS: Cisco\n";
-			break;
-		default:
-			msg = "[+] Detected OS: Unknown\n";
-			break;
-		}
-		print_wrapper(stdout, fp, msg);
+		print_os(os, fp);
 	}
 
 	if (fp != NULL)
