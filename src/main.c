@@ -341,6 +341,10 @@ int main(int argc, char *argv[])
 		finger.window_size = target_info.window_size;
 		int os = determine_os(&finger);
 		print_os(os, fp);
+		int hops = network_dist(os, finger.ttl);
+		snprintf(msg_buf, MSG_BUF_SIZE, "[+] Network distance (estimate in hops): %d\n", hops);
+		print_wrapper(stdout, fp, msg_buf);
+		memset(msg_buf, 0, MSG_BUF_SIZE);
 	}
 
 	if (ports != NULL)
@@ -384,6 +388,10 @@ int main(int argc, char *argv[])
 		finger.window_size = target_info.window_size;
 		int os = determine_os(&finger);
 		print_os(os, fp);
+		int hops = network_dist(os, finger.ttl);
+		snprintf(msg_buf, MSG_BUF_SIZE, "[+] Network distance (estimate in hops): %d\n", hops);
+		print_wrapper(stdout, fp, msg_buf);
+		memset(msg_buf, 0, MSG_BUF_SIZE);
 	}
 
 	if (fp != NULL)
