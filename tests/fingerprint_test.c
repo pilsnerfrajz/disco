@@ -9,6 +9,8 @@
 
 void fingerprint_tests(void)
 {
+	set_test_print_flag(0);
+
 	int ret;
 	struct target_info target_info = {0};
 	struct fingerprint finger = {0};
