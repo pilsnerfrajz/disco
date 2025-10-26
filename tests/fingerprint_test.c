@@ -18,15 +18,17 @@ void fingerprint_tests(void)
 	{
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
-		if (determine_os(&finger) == LINUX_LIKE_OS)
+		if (determine_os(&finger) == UNIX_LIKE_OS)
 			printf("✅ Fingerprint of Linux host test: Passed\n");
+		else if (target_info.is_up == 0)
+			fprintf(stderr, "❌ Fingerprint of Linux host test failed: Host is down\n");
 		else
 			fprintf(stderr, "❌ Fingerprint of Linux host test failed: Detected OS %d\n", determine_os(&finger));
 	}
 	else
 	{
 		print_err(stderr, "Port_scan", ret);
-		fprintf(stderr, "❌ Fingerprint of Linux host test failed: Detected OS %d\n", determine_os(&finger));
+		fprintf(stderr, "❌ Fingerprint of Linux host test failed\n");
 	}
 
 	memset(&finger, 0, sizeof(finger));
@@ -38,13 +40,15 @@ void fingerprint_tests(void)
 		finger.window_size = target_info.window_size;
 		if (determine_os(&finger) == WINDOWS_OS)
 			printf("✅ Fingerprint of Windows host test: Passed\n");
+		else if (target_info.is_up == 0)
+			fprintf(stderr, "❌ Fingerprint of Windows host test failed: Host is down\n");
 		else
 			fprintf(stderr, "❌ Fingerprint of Windows host test failed: Detected OS %d\n", determine_os(&finger));
 	}
 	else
 	{
 		print_err(stderr, "Port_scan", ret);
-		fprintf(stderr, "❌ Fingerprint of Windows host test failed: Detected OS %d\n", determine_os(&finger));
+		fprintf(stderr, "❌ Fingerprint of Windows host test failed\n");
 	}
 
 	memset(&finger, 0, sizeof(finger));
@@ -56,13 +60,15 @@ void fingerprint_tests(void)
 		finger.window_size = target_info.window_size;
 		if (determine_os(&finger) == BSD_LIKE_OS)
 			printf("✅ Fingerprint of mac host test: Passed\n");
+		else if (target_info.is_up == 0)
+			fprintf(stderr, "❌ Fingerprint of mac host test failed: Host is down\n");
 		else
 			fprintf(stderr, "❌ Fingerprint of mac host test failed: Detected OS %d\n", determine_os(&finger));
 	}
 	else
 	{
 		print_err(stderr, "Port_scan", ret);
-		fprintf(stderr, "❌ Fingerprint of mac host test failed: Detected OS %d\n", determine_os(&finger));
+		fprintf(stderr, "❌ Fingerprint of mac host test failed\n");
 	}
 
 	memset(&finger, 0, sizeof(finger));
@@ -72,14 +78,16 @@ void fingerprint_tests(void)
 	{
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
-		if (determine_os(&finger) == LINUX_LIKE_OS)
+		if (determine_os(&finger) == UNIX_LIKE_OS)
 			printf("✅ Fingerprint of Linux router test: Passed\n");
+		else if (target_info.is_up == 0)
+			fprintf(stderr, "❌ Fingerprint of Linux router test failed: Host is down\n");
 		else
 			fprintf(stderr, "❌ Fingerprint of Linux router test failed: Detected OS %d\n", determine_os(&finger));
 	}
 	else
 	{
 		print_err(stderr, "Port_scan", ret);
-		fprintf(stderr, "❌ Fingerprint of Linux router test failed: Detected OS %d\n", determine_os(&finger));
+		fprintf(stderr, "❌ Fingerprint of Linux router test failed\n");
 	}
 }
