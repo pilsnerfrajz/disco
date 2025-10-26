@@ -25,8 +25,7 @@ void syn_scan_test(void)
 	unsigned short *all_ports = NULL;
 	unsigned short *parse_test_ports = NULL;
 
-	// TODO CHANGE DURING TESTING
-	char *lan_dev = "192.168.x.x";
+	char *lan_dev = "192.168.1.1";
 
 	if ((all_ports = parse_ports("1-65535", &all_port_count)) != NULL)
 	{
