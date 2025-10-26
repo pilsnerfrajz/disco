@@ -30,4 +30,13 @@ struct fingerprint
  */
 int determine_os(struct fingerprint *finger);
 
+/**
+ * @brief Estimate the network distance in hops based on OS and TTL.
+ *
+ * @param os Detected operating system.
+ * @param ttl Time To Live value from the target.
+ * @return int Estimated number of hops to the target.
+ */
+int network_dist(int os, int ttl);
+
 #endif

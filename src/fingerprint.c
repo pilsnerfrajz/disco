@@ -34,3 +34,26 @@ int determine_os(struct fingerprint *finger)
 		return UNKNOWN_OS;
 	}
 }
+
+int network_dist(int os, int ttl)
+{
+	int hops = 0;
+	switch (os)
+	{
+	case UNIX_LIKE_OS:
+		hops = 64 - ttl;
+		break;
+	case BSD_LIKE_OS:
+		hops = 64 - ttl;
+		break;
+	case WINDOWS_OS:
+		hops = 128 - ttl;
+		break;
+	case CISCO_OS:
+		hops = 255 - ttl;
+		break;
+	default:
+		hops = -1;
+	}
+	return hops;
+}
