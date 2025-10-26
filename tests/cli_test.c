@@ -3,7 +3,8 @@
 #include "../include/cli.h"
 #include "../include/error.h"
 
-static void test(int number_of_flags, char *ports, int show_open, char *target, int no_host_disc, int force_ping, int force_arp)
+static void test(int number_of_flags, char *ports, int show_open, char *target,
+				 int no_host_disc, int force_ping, int force_arp)
 {
 	int set = 0;
 	if (ports)
@@ -67,6 +68,7 @@ void cli_test(void)
 	int force_arp = 0;
 	int force_syn = 0;
 	int show_open = 0;
+	int fingerprint_os = 0;
 
 	char *help[] = {"program", "-h"};
 	char *parse[] = {"program",
@@ -80,12 +82,14 @@ void cli_test(void)
 					 "127.0.0.1",
 					 "::1"};
 
-	parse_cli(2, help, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &force_syn, &file);
+	parse_cli(2, help, &target, &ports, &show_open, &no_host_disc, &force_ping,
+			  &force_arp, &force_syn, &fingerprint_os, &file);
 	free(file);
 
 	test(0, ports, 0, target, no_host_disc, force_ping, force_arp);
 	file = NULL;
-	parse_cli(11, parse, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &force_syn, &file);
+	parse_cli(11, parse, &target, &ports, &show_open, &no_host_disc, &force_ping,
+			  &force_arp, &force_syn, &fingerprint_os, &file);
 
 	test(6, ports, 1, target, no_host_disc, force_ping, force_arp);
 
