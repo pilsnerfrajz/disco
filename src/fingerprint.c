@@ -29,7 +29,7 @@ int determine_os(struct fingerprint *finger)
 	{
 		return WINDOWS_OS;
 	}
-	else if (finger->ttl > 128 && finger->ttl <= 255)
+	else if (finger->ttl > 128)
 	{
 		return CISCO_OS;
 	}
