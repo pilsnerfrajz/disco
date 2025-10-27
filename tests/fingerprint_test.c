@@ -60,7 +60,7 @@ void fingerprint_tests(void)
 	{
 		finger.ttl = target_info.ttl;
 		finger.window_size = target_info.window_size;
-		if (determine_os(&finger) == BSD_LIKE_OS)
+		if (determine_os(&finger) == MAC_OS)
 			printf("✅ Fingerprint of mac host test: Passed\n");
 		else if (target_info.is_up == 0)
 			fprintf(stderr, "❌ Fingerprint of mac host test failed: Host is down\n");
