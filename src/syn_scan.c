@@ -1160,6 +1160,14 @@ int port_scan(char *address,
 	target_info->is_up = c_data.is_up;
 	target_info->ttl = c_data.ttl_set ? c_data.ttl : 0;
 	target_info->window_size = c_data.winsize_set ? c_data.window_size : 0;
+	if (c_data.mac_set)
+	{
+		memcpy(target_info->mac, c_data.mac, 6);
+	}
+	else
+	{
+		memset(target_info->mac, 0, 6);
+	}
 
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)
