@@ -56,6 +56,9 @@ int network_dist(int os, int ttl)
 	case CISCO_OS:
 		hops = 255 - ttl;
 		break;
+	case MAC_OS:
+		hops = 64 - ttl;
+		break;
 	default:
 		hops = -1;
 	}
