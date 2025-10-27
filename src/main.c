@@ -15,7 +15,7 @@
 #define RETRIES 3
 #define MSG_BUF_SIZE 2048
 #define DISCOVERY_PORT_COUNT 3
-#define MAC_PRINT_BUF_SIZE (strlen("[+] MAC address: 00:xx:de:ad:be:ef\n") + 1)
+#define MAC_PRINT_BUF_SIZE (strlen("[+] MAC address: 00:xx:de:ad:be:ef") + 1)
 
 static unsigned short discovery_ports[DISCOVERY_PORT_COUNT] = {22, 80, 443};
 
@@ -177,6 +177,9 @@ static void print_os(int os, FILE *fp)
 	case CISCO_OS:
 		msg = "[+] Detected OS: Cisco\n";
 		break;
+	case MAC_OS:
+		msg = "[+] Detected OS: macOS\n";
+		break;
 	default:
 		msg = "[+] Detected OS: Unknown\n";
 		break;
@@ -193,9 +196,17 @@ static int is_mac_empty(u_int8_t mac[6])
 static void print_mac(u_int8_t mac[6], FILE *fp)
 {
 	char m[MAC_PRINT_BUF_SIZE];
-	snprintf(m, MAC_PRINT_BUF_SIZE, "[+] MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+	snprintf(m, MAC_PRINT_BUF_SIZE, "[+] MAC address: %02x:%02x:%02x:%02x:%02x:%02x",
 			 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 	print_wrapper(stdout, fp, m);
+
+	if (mac[0] == 0x10 && mac[1] == 0xbd && mac[2] == 0x3a)
+	{
+		char *vendor = " (Apple)";
+		print_wrapper(stdout, fp, vendor);
+	}
+
+	print_wrapper(stdout, fp, "\n");
 }
 
 static void print_fingerprint(struct fingerprint finger,
@@ -205,6 +216,7 @@ static void print_fingerprint(struct fingerprint finger,
 {
 	finger.ttl = target_info.ttl;
 	finger.window_size = target_info.window_size;
+	memcpy(finger.mac, target_info.mac, 6);
 	int os = determine_os(&finger);
 	print_os(os, fp);
 	if (target_info.is_open_port)

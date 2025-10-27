@@ -12,6 +12,10 @@ int determine_os(struct fingerprint *finger)
 
 	if (finger->ttl <= 64) /* Linux, mac or BSD*/
 	{
+		if (finger->mac[0] == 0x10 && finger->mac[1] == 0xbd && finger->mac[2] == 0x3a)
+		{
+			return MAC_OS;
+		}
 		if (finger->window_size == 65535)
 		{
 			return BSD_LIKE_OS;

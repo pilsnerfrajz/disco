@@ -8,6 +8,7 @@
 #define BSD_LIKE_OS 3
 #define WINDOWS_OS 4
 #define CISCO_OS 5
+#define MAC_OS 6
 
 #define LINUX_TTL 64
 #define BSD_FAMILY_TTL 64
