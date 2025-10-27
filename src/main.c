@@ -15,6 +15,7 @@
 #define RETRIES 3
 #define MSG_BUF_SIZE 2048
 #define DISCOVERY_PORT_COUNT 3
+#define MAC_PRINT_BUF_SIZE (strlen("[+] MAC address: de:ad:be:ef:00:00\n") + 1)
 
 static unsigned short discovery_ports[DISCOVERY_PORT_COUNT] = {22, 80, 443};
 
@@ -183,6 +184,42 @@ static void print_os(int os, FILE *fp)
 	print_wrapper(stdout, fp, msg);
 }
 
+static int is_mac_empty(u_int8_t mac[6])
+{
+	static u_int8_t zero_mac[6] = {0};
+	return memcmp(mac, zero_mac, 6) == 0;
+}
+
+static void print_mac(u_int8_t mac[6], FILE *fp)
+{
+	char m[MAC_PRINT_BUF_SIZE];
+	snprintf(m, MAC_PRINT_BUF_SIZE, "[+] MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+			 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	print_wrapper(stdout, fp, m);
+}
+
+static void print_fingerprint(struct fingerprint finger,
+							  struct target_info target_info,
+							  FILE *fp,
+							  char msg_buf[MSG_BUF_SIZE])
+{
+	finger.ttl = target_info.ttl;
+	finger.window_size = target_info.window_size;
+	int os = determine_os(&finger);
+	print_os(os, fp);
+	if (target_info.is_open_port)
+	{
+		int hops = network_dist(os, finger.ttl);
+		snprintf(msg_buf, MSG_BUF_SIZE, "[+] Network distance (estimate in hops): %d\n", hops);
+		print_wrapper(stdout, fp, msg_buf);
+		memset(msg_buf, 0, MSG_BUF_SIZE);
+	}
+	if (!is_mac_empty(target_info.mac))
+	{
+		print_mac(target_info.mac, fp);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc == 1)
@@ -342,17 +379,7 @@ int main(int argc, char *argv[])
 		}
 		if (target_info.is_up)
 		{
-			finger.ttl = target_info.ttl;
-			finger.window_size = target_info.window_size;
-			int os = determine_os(&finger);
-			print_os(os, fp);
-			if (target_info.is_open_port)
-			{
-				int hops = network_dist(os, finger.ttl);
-				snprintf(msg_buf, MSG_BUF_SIZE, "[+] Network distance (estimate in hops): %d\n", hops);
-				print_wrapper(stdout, fp, msg_buf);
-				memset(msg_buf, 0, MSG_BUF_SIZE);
-			}
+			print_fingerprint(finger, target_info, fp, msg_buf);
 		}
 	}
 
@@ -395,17 +422,7 @@ int main(int argc, char *argv[])
 
 		if (target_info.is_up)
 		{
-			finger.ttl = target_info.ttl;
-			finger.window_size = target_info.window_size;
-			int os = determine_os(&finger);
-			print_os(os, fp);
-			if (target_info.is_open_port)
-			{
-				int hops = network_dist(os, finger.ttl);
-				snprintf(msg_buf, MSG_BUF_SIZE, "[+] Network distance (estimate in hops): %d\n", hops);
-				print_wrapper(stdout, fp, msg_buf);
-				memset(msg_buf, 0, MSG_BUF_SIZE);
-			}
+			print_fingerprint(finger, target_info, fp, msg_buf);
 		}
 	}
 
