@@ -24,7 +24,8 @@ static void banner(FILE *stream)
 			"disco - network utility for host discovery and port enumeration\n"
 			"author: pilsnerfrajz\n\n");
 	fprintf(stream,
-			"usage: disco target [-h] [-p ports] [-o] [-n] [-P] [-a] [-S] [-w file]\n"
+			"usage: disco target [-h] [-p ports] [-o] [-n] [-P] [-a] [-S]\n"
+			"                    [-w file] [-f]\n"
 			"options:\n"
 			"  target          : host to scan (IP address or domain)\n"
 			"  -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80\n"
@@ -33,7 +34,7 @@ static void banner(FILE *stream)
 			"  -P, --ping-only : force ICMP host discovery (skip ARP attempt)\n"
 			"  -a, --arp-only  : force ARP host discovery  (skip ICMP fallback)\n"
 			"  -S, --syn-only  : force SYN host discovery  (skip ARP and ICMP)\n"
-			"  -f, --finger    : fingerprint target OS\n"
+			"  -f, --finger    : fingerprint target OS (default during port scan)\n"
 			"  -w, --write     : write results to a file\n"
 			"  -h, --help      : display this message\n");
 }
