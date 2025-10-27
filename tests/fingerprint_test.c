@@ -9,6 +9,8 @@
 
 void fingerprint_tests(void)
 {
+	printf("-- Fingerprint Tests --\n");
+
 	set_test_print_flag(0);
 
 	int ret;
