@@ -5,6 +5,15 @@
 #define OPEN 1
 #define CLOSED 2
 
+struct target_info
+{
+	short is_open_port;
+	short is_up;
+	u_int8_t ttl;
+	u_int16_t window_size;
+	u_int8_t mac[6];
+};
+
 /**
  * @brief Performs a SYN scan on the specified ports of a target address or
  * domain. If `print_state` is true, the open ports will be printed. An array
@@ -17,16 +26,16 @@
  * @param address The target address to scan.
  * @param port_arr The array of ports to scan.
  * @param count The number of ports in the array.
- * @param is_open_port Whether any open ports were found.
- * @param is_up Whether the host is up.
+ * @param target_info Pointer to a `target_info` struct to store information
+ * about the target.
  * @param result_arr Pointer to an array to store the results of the scan.
- * @return `int` Returns SUCCESS on success, or an error code from `error.h` on failure.
+ * @return `int` Returns SUCCESS on success, or an error code from `error.h` on
+ * failure.
  */
 int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int count,
-			  short *is_open_port,
-			  short *is_up,
+			  struct target_info *target_info,
 			  unsigned short **result_arr);
 
 /**

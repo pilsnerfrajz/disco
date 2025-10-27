@@ -20,6 +20,7 @@ void usage(FILE *stream);
  * @param force_ping Flag to force ICMP.
  * @param force_arp Flag to force ARP.
  * @param force_syn Flag to force SYN scan.
+ * @param fingerprint_os Flag to enable OS fingerprinting.
  * @param write_file Pointer to store the write_file path.
  * @return int 0 on success, CLI_PARSE on error.
  */
@@ -32,6 +33,7 @@ int parse_cli(int argc,
 			  int *force_ping,
 			  int *force_arp,
 			  int *force_syn,
+			  int *fingerprint_os,
 			  char **write_file);
 
 #endif

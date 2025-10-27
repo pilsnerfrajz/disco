@@ -10,10 +10,12 @@
 #include "../include/arp.h"
 #include "../include/ping.h"
 #include "../include/syn_scan.h"
+#include "../include/fingerprint.h"
 
 #define RETRIES 3
 #define MSG_BUF_SIZE 2048
 #define DISCOVERY_PORT_COUNT 3
+#define MAC_PRINT_BUF_SIZE (strlen("[+] MAC address: 00:xx:de:ad:be:ef") + 1)
 
 static unsigned short discovery_ports[DISCOVERY_PORT_COUNT] = {22, 80, 443};
 
@@ -47,7 +49,7 @@ static int print_wrapper(FILE *stream, FILE *fp, const char *msg)
  * @param target The target address to check.
  * @return `int` 0 on success, `NO_RESPONSE` if an error occurs.
  */
-static int default_scan(FILE *fp, char *target)
+static int default_scan(FILE *fp, char *target, struct target_info *target_info)
 {
 	int rv = arp(target);
 	if (rv == SUCCESS)
@@ -66,10 +68,10 @@ static int default_scan(FILE *fp, char *target)
 	msg = "[!] Ping failed, falling back to TCP SYN\n";
 	print_wrapper(stdout, fp, msg);
 
-	short is_up = 0;
-	short is_open_port = 0;
-	rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &is_open_port, &is_up, NULL);
-	if (rv != SUCCESS || !is_up)
+	target_info->is_open_port = 0;
+	target_info->is_up = 0;
+	rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, target_info, NULL);
+	if (rv != SUCCESS || !target_info->is_up)
 	{
 		msg = "[-] Host discovery failed. Host is down, aborting\n";
 		print_wrapper(stderr, fp, msg);
@@ -158,6 +160,78 @@ static void print_open_ports(unsigned short *res_arr,
 	}
 }
 
+static void print_os(int os, FILE *fp)
+{
+	char *msg = NULL;
+	switch (os)
+	{
+	case UNIX_LIKE_OS:
+		msg = "[+] Detected OS: Unix-like\n";
+		break;
+	case BSD_LIKE_OS:
+		msg = "[+] Detected OS: BSD-like\n";
+		break;
+	case WINDOWS_OS:
+		msg = "[+] Detected OS: Windows\n";
+		break;
+	case CISCO_OS:
+		msg = "[+] Detected OS: Cisco\n";
+		break;
+	case MAC_OS:
+		msg = "[+] Detected OS: macOS\n";
+		break;
+	default:
+		msg = "[+] Detected OS: Unknown\n";
+		break;
+	}
+	print_wrapper(stdout, fp, msg);
+}
+
+static int is_mac_empty(u_int8_t mac[6])
+{
+	static u_int8_t zero_mac[6] = {0};
+	return memcmp(mac, zero_mac, 6) == 0;
+}
+
+static void print_mac(u_int8_t mac[6], FILE *fp)
+{
+	char m[MAC_PRINT_BUF_SIZE];
+	snprintf(m, MAC_PRINT_BUF_SIZE, "[+] MAC address: %02x:%02x:%02x:%02x:%02x:%02x",
+			 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	print_wrapper(stdout, fp, m);
+
+	if (mac[0] == 0x10 && mac[1] == 0xbd && mac[2] == 0x3a)
+	{
+		char *vendor = " (Apple)";
+		print_wrapper(stdout, fp, vendor);
+	}
+
+	print_wrapper(stdout, fp, "\n");
+}
+
+static void print_fingerprint(struct fingerprint finger,
+							  struct target_info target_info,
+							  FILE *fp,
+							  char msg_buf[MSG_BUF_SIZE])
+{
+	finger.ttl = target_info.ttl;
+	finger.window_size = target_info.window_size;
+	memcpy(finger.mac, target_info.mac, 6);
+	int os = determine_os(&finger);
+	print_os(os, fp);
+	if (target_info.is_open_port)
+	{
+		int hops = network_dist(os, finger.ttl);
+		snprintf(msg_buf, MSG_BUF_SIZE, "[+] Network distance (estimate in hops): %d\n", hops);
+		print_wrapper(stdout, fp, msg_buf);
+		memset(msg_buf, 0, MSG_BUF_SIZE);
+	}
+	if (!is_mac_empty(target_info.mac))
+	{
+		print_mac(target_info.mac, fp);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	if (argc == 1)
@@ -182,10 +256,16 @@ int main(int argc, char *argv[])
 	int force_arp = 0;
 	int force_syn = 0;
 	int show_open = 0;
+	int fingerprint_os = 0;
 	int up = 0;
 	int rv = 0;
 
-	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc, &force_ping, &force_arp, &force_syn, &write_file) != 0)
+	struct target_info target_info = {0};
+	struct fingerprint finger = {0};
+
+	if (parse_cli(argc, argv, &target, &ports, &show_open, &no_host_disc,
+				  &force_ping, &force_arp, &force_syn, &fingerprint_os,
+				  &write_file) != 0)
 	{
 		return CLI_PARSE;
 	}
@@ -193,7 +273,6 @@ int main(int argc, char *argv[])
 	if (getuid() != 0)
 	{
 		fprintf(stderr, "[-] Permission denied, run as root!\n");
-		usage(stderr);
 		rv = PERMISSION_ERROR;
 		goto cleanup;
 	}
@@ -205,7 +284,6 @@ int main(int argc, char *argv[])
 		{
 			char *e = strerror(errno);
 			fprintf(stderr, "[-] Failed to open '%s' for writing: %s\n", write_file, e);
-			usage(stderr);
 			goto cleanup;
 		}
 		fprintf(fp, "[+] Command: ");
@@ -225,7 +303,6 @@ int main(int argc, char *argv[])
 		{
 			msg = "[-] ARP failed, try with '-P' instead\n";
 			print_wrapper(stderr, fp, msg);
-			usage(stderr);
 			goto cleanup;
 		}
 		up = 1;
@@ -249,12 +326,12 @@ int main(int argc, char *argv[])
 	{
 		msg = "[!] Forcing TCP SYN host discovery (skipping ARP and ICMP)\n";
 		print_wrapper(stdout, fp, msg);
-		short is_up = 0;
-		short is_open_port = 0;
-		rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &is_open_port, &is_up, NULL);
-		if (rv != SUCCESS || !is_up)
+		target_info.is_open_port = 0;
+		target_info.is_up = 0;
+		rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &target_info, NULL);
+		if (rv != SUCCESS || !target_info.is_up)
 		{
-			msg = "[-] TCP SYN host discovery failed. Host is down, aborting\n";
+			msg = "[-] TCP SYN host discovery failed\n";
 			print_wrapper(stderr, fp, msg);
 			rv = NO_RESPONSE;
 			goto cleanup;
@@ -279,7 +356,7 @@ int main(int argc, char *argv[])
 
 	if (!no_host_disc && !force_arp && !force_ping && !force_syn)
 	{
-		rv = default_scan(fp, target);
+		rv = default_scan(fp, target, &target_info);
 		if (rv != 0)
 		{
 			goto cleanup;
@@ -292,6 +369,27 @@ int main(int argc, char *argv[])
 		snprintf(msg_buf, MSG_BUF_SIZE, "[+] Host %s is up!\n", target);
 		print_wrapper(stdout, fp, msg_buf);
 		memset(msg_buf, 0, MSG_BUF_SIZE);
+	}
+
+	if (fingerprint_os && ports == NULL)
+	{
+		msg = "[!] Fingerprinting is more reliable when used with port scanning (-p)\n";
+		print_wrapper(stdout, fp, msg);
+
+		if (target_info.ttl == 0)
+		{
+			rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &target_info, NULL);
+			if (rv != SUCCESS)
+			{
+				msg = "[-] Fingerprinting failed, aborting\n";
+				print_wrapper(stderr, fp, msg);
+				goto cleanup;
+			}
+		}
+		if (target_info.is_up)
+		{
+			print_fingerprint(finger, target_info, fp, msg_buf);
+		}
 	}
 
 	if (ports != NULL)
@@ -309,17 +407,18 @@ int main(int argc, char *argv[])
 		snprintf(msg_buf, MSG_BUF_SIZE, "[*] Scanning %d port(s) on %s...\n", port_count, target);
 		print_wrapper(stdout, fp, msg_buf);
 		memset(msg_buf, 0, MSG_BUF_SIZE);
-		short is_open_port = 0;
-		short is_up = 0;
 
-		rv = port_scan(target, port_arr, port_count, &is_open_port, &is_up, &res_arr);
+		target_info.is_open_port = 0;
+		target_info.is_up = 0;
+
+		rv = port_scan(target, port_arr, port_count, &target_info, &res_arr);
 		if (rv != SUCCESS)
 		{
 			print_err(stderr, "[-] port_scan", rv);
 			goto cleanup;
 		}
 
-		if (is_open_port)
+		if (target_info.is_open_port)
 		{
 			print_wrapper(stdout, fp, "[+] Port scan results:\n");
 			print_open_ports(res_arr, port_arr, port_count, show_open, fp);
@@ -328,6 +427,11 @@ int main(int argc, char *argv[])
 		{
 			msg = "[!] No open port(s) found\n";
 			print_wrapper(stdout, fp, msg);
+		}
+
+		if (target_info.is_up)
+		{
+			print_fingerprint(finger, target_info, fp, msg_buf);
 		}
 	}
 

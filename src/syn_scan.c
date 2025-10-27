@@ -66,7 +66,13 @@ struct callback_data
 	short loopback_flag;
 	short any_open; /* Flag if any open port is found */
 	short is_up;	/* Flag if host is up */
+	u_int8_t ttl;	/* TTL from received IP header */
+	short ttl_set;
+	u_int16_t window_size; /* Window size from received TCP header */
+	short winsize_set;
 	volatile short port_status[65536];
+	u_int8_t mac[6];
+	short mac_set;
 };
 
 static pcap_t *handle;
@@ -91,10 +97,21 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 
 	if (ntohs(eth->ptype) == ETH_TYPE_IPV4)
 	{
+		if (!(c_data->mac_set))
+		{
+			memcpy(c_data->mac, eth->src, 6);
+			c_data->mac_set = 1;
+		}
+
 		struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
 		if (ip_hdr->ip_p != IP_PROTO_TCP)
 		{
 			return;
+		}
+		if (!c_data->ttl_set)
+		{
+			c_data->ttl = ip_hdr->ip_ttl;
+			c_data->ttl_set = 1;
 		}
 		int ip_len = ip_hdr->ip_hl * 4;
 		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + ip_len);
@@ -102,10 +119,21 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	/* Handle IPv6 packets */
 	else if (ntohs(eth->ptype) == ETH_TYPE_IPV6)
 	{
+		if (!(c_data->mac_set))
+		{
+			memcpy(c_data->mac, eth->src, 6);
+			c_data->mac_set = 1;
+		}
+
 		struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + sizeof(ethernet_header_t));
 		if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
 		{
 			return;
+		}
+		if (!c_data->ttl_set)
+		{
+			c_data->ttl = ip6_hdr->ip6_hlim;
+			c_data->ttl_set = 1;
 		}
 		tcp_hdr = (tcp_header_t *)(bytes + sizeof(ethernet_header_t) + sizeof(struct ip6_hdr));
 	}
@@ -123,6 +151,12 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		/* Check if IPv4 */
 		if (ip_hdr->ip_v == 4 && ip_hdr->ip_p == IP_PROTO_TCP)
 		{
+			if (!c_data->ttl_set)
+			{
+				c_data->ttl = ip_hdr->ip_ttl;
+				c_data->ttl_set = 1;
+			}
+
 			int ip_len = ip_hdr->ip_hl * 4;
 			tcp_hdr = (tcp_header_t *)(bytes + skip_null + ip_len);
 		}
@@ -130,6 +164,12 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 		else if (ip_hdr->ip_v == 6)
 		{
 			struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + skip_null);
+			if (!c_data->ttl_set)
+			{
+				c_data->ttl = ip6_hdr->ip6_hlim;
+				c_data->ttl_set = 1;
+			}
+
 			if (ip6_hdr->ip6_nxt == IP_PROTO_TCP)
 			{
 				tcp_hdr = (tcp_header_t *)(bytes + skip_null + sizeof(struct ip6_hdr));
@@ -155,6 +195,15 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	{
 		c_data->port_status[ntohs(tcp_hdr->sport)] = OPEN;
 		c_data->any_open = 1;
+
+		if (!c_data->winsize_set)
+		{
+			if (ntohs(tcp_hdr->window) > 0)
+			{
+				c_data->window_size = ntohs(tcp_hdr->window);
+				c_data->winsize_set = 1;
+			}
+		}
 	}
 	else if (tcp_hdr->flags & RST)
 	{
@@ -862,8 +911,7 @@ static int send_syn(int sfd,
 int port_scan(char *address,
 			  unsigned short *port_arr,
 			  int port_count,
-			  short *is_open_port,
-			  short *is_up,
+			  struct target_info *target_info,
 			  unsigned short **result_arr)
 {
 	if (test_print)
@@ -1108,8 +1156,18 @@ int port_scan(char *address,
 		printf("│ %d ports are closed\n", port_count - open_count);
 	}
 
-	*is_open_port = c_data.any_open;
-	*is_up = c_data.is_up;
+	target_info->is_open_port = c_data.any_open;
+	target_info->is_up = c_data.is_up;
+	target_info->ttl = c_data.ttl_set ? c_data.ttl : 0;
+	target_info->window_size = c_data.winsize_set ? c_data.window_size : 0;
+	if (c_data.mac_set)
+	{
+		memcpy(target_info->mac, c_data.mac, 6);
+	}
+	else
+	{
+		memset(target_info->mac, 0, 6);
+	}
 
 	/* Save results to supplied result_arr for use in caller */
 	if (result_arr != NULL)

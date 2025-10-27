@@ -3,7 +3,7 @@
 #include "include/arp_test.h"
 #include "include/ping_test.h"
 #include "include/syn_scan_test.h"
-#include "include/cli_test.h"
+#include "include/fingerprint_test.h"
 
 int main(void)
 {
@@ -13,7 +13,7 @@ int main(void)
 	printf("\n");
 	syn_scan_test();
 	printf("\n");
-	cli_test();
+	fingerprint_tests();
 
 	return 0;
 }
