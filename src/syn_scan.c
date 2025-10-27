@@ -71,6 +71,8 @@ struct callback_data
 	u_int16_t window_size; /* Window size from received TCP header */
 	short winsize_set;
 	volatile short port_status[65536];
+	u_int8_t mac[6];
+	short mac_set;
 };
 
 static pcap_t *handle;
@@ -95,6 +97,12 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 
 	if (ntohs(eth->ptype) == ETH_TYPE_IPV4)
 	{
+		if (!(c_data->mac_set))
+		{
+			memcpy(c_data->mac, eth->src, 6);
+			c_data->mac_set = 1;
+		}
+
 		struct ip *ip_hdr = (struct ip *)(bytes + sizeof(ethernet_header_t));
 		if (ip_hdr->ip_p != IP_PROTO_TCP)
 		{
@@ -111,6 +119,12 @@ static void tcp_process_pkt(u_char *user, const struct pcap_pkthdr *pkt_hdr,
 	/* Handle IPv6 packets */
 	else if (ntohs(eth->ptype) == ETH_TYPE_IPV6)
 	{
+		if (!(c_data->mac_set))
+		{
+			memcpy(c_data->mac, eth->src, 6);
+			c_data->mac_set = 1;
+		}
+
 		struct ip6_hdr *ip6_hdr = (struct ip6_hdr *)(bytes + sizeof(ethernet_header_t));
 		if (ip6_hdr->ip6_nxt != IP_PROTO_TCP)
 		{
