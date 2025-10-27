@@ -327,6 +327,9 @@ int main(int argc, char *argv[])
 
 	if (fingerprint_os && ports == NULL)
 	{
+		msg = "[!] Fingerprinting is more reliable when used with port scanning (-p)\n";
+		print_wrapper(stdout, fp, msg);
+
 		if (target_info.ttl == 0)
 		{
 			rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &target_info, NULL);
