@@ -261,7 +261,6 @@ int main(int argc, char *argv[])
 	if (getuid() != 0)
 	{
 		fprintf(stderr, "[-] Permission denied, run as root!\n");
-		usage(stderr);
 		rv = PERMISSION_ERROR;
 		goto cleanup;
 	}
@@ -273,7 +272,6 @@ int main(int argc, char *argv[])
 		{
 			char *e = strerror(errno);
 			fprintf(stderr, "[-] Failed to open '%s' for writing: %s\n", write_file, e);
-			usage(stderr);
 			goto cleanup;
 		}
 		fprintf(fp, "[+] Command: ");
@@ -293,7 +291,6 @@ int main(int argc, char *argv[])
 		{
 			msg = "[-] ARP failed, try with '-P' instead\n";
 			print_wrapper(stderr, fp, msg);
-			usage(stderr);
 			goto cleanup;
 		}
 		up = 1;
@@ -322,7 +319,7 @@ int main(int argc, char *argv[])
 		rv = port_scan(target, discovery_ports, DISCOVERY_PORT_COUNT, &target_info, NULL);
 		if (rv != SUCCESS || !target_info.is_up)
 		{
-			msg = "[-] TCP SYN host discovery failed. Host is down, aborting\n";
+			msg = "[-] TCP SYN host discovery failed\n";
 			print_wrapper(stderr, fp, msg);
 			rv = NO_RESPONSE;
 			goto cleanup;
