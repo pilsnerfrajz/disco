@@ -11,6 +11,7 @@ struct target_info
 	short is_up;
 	u_int8_t ttl;
 	u_int16_t window_size;
+	u_int8_t mac[6];
 };
 
 /**
