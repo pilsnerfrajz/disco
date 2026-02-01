@@ -157,7 +157,7 @@ After capturing the replies, the packets are parsed manually and the TCP flags a
 
 A total of three attempts will be made for each port, unless it has already been detected as open. Any port that does not send a reply back will be seen as filtered. However, this does not say anything about the state of the port and could be due to network issues or firewall blocking. 
 
-### Fingerprinting
+### OS Fingerprinting
 Disco supports basic fingerprinting of operating systems based on TCP/IP stack characteristics. When a reply is received from a target during port scanning, the following parameters are analyzed:
 
 **TTL (Time to Live) Analysis**: By examining the TTL value in the IP header, disco can make guesses about the operating system. Different OSes have different default TTL values, e.g., 64 for Linux, 128 for Windows. Cisco devices use a TTL of 255, but this has not been tested. It is still supported though. 
@@ -166,5 +166,5 @@ Disco supports basic fingerprinting of operating systems based on TCP/IP stack c
 
 **MAC Address Pattern Matching**: The MAC address of the target reveals the manufacturer of the network card, which can reveal information about the OS. Because newer Apple devices use their own network cards, disco uses a check for Apple MAC address prefixes (e.g., `10:BD:3A`) to identify macOS systems. This enables disco to distinguish macOS from other BSD-like systems. This also means that Macs have the most accurate fingerprinting, as MAC fingerprinting has not been implemented for other manufacturers.
 
-### Diagnostics
+### Network Diagnostics
 The fingerprinting allows for calculations of the estimated number of hops between the scanning host and the target, based on the identified OS's default TTL value. This information could be useful for network diagnostics and understanding the network topology. The MAC address is also printed without Vendor lookup (except Apple), allowing users to gain more information about the target device with a quick online search.
