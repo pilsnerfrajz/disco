@@ -68,7 +68,8 @@ brew install libpcap
 disco - network utility for host discovery and port enumeration
 author: pilsnerfrajz
 
-usage: disco target [-h] [-p ports] [-o] [-n] [-P] [-a] [-S] [-w file]
+usage: disco target [-h] [-p ports] [-o] [-n] [-P] [-a] [-S]
+                    [-w file] [-f]
 options:
   target          : host to scan (IP address or domain)
   -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80
@@ -77,6 +78,7 @@ options:
   -P, --ping-only : force ICMP host discovery (skip ARP attempt)
   -a, --arp-only  : force ARP host discovery  (skip ICMP fallback)
   -S, --syn-only  : force SYN host discovery  (skip ARP and ICMP)
+  -f, --finger    : fingerprint target OS (default during port scan)
   -w, --write     : write results to a file
   -h, --help      : display this message
 ```
@@ -154,3 +156,15 @@ After creating the proper header, it is sent to the target. With the use of mult
 After capturing the replies, the packets are parsed manually and the TCP flags are inspected. If a SYN-ACK is received, the port is marked as open. When using a VPN, the SYN-ACKs are sometimes not captured, but instead an ACK reply after disco closes the connection with a RST flag. This seems to come from the VPN infrastructure and should never arrive unless the target port is open as seen in the illustration above. 
 
 A total of three attempts will be made for each port, unless it has already been detected as open. Any port that does not send a reply back will be seen as filtered. However, this does not say anything about the state of the port and could be due to network issues or firewall blocking. 
+
+### OS Fingerprinting
+Disco supports basic fingerprinting of operating systems based on TCP/IP stack characteristics. When a reply is received from a target during port scanning, the following parameters are analyzed:
+
+**TTL (Time to Live) Analysis**: By examining the TTL value in the IP header, disco can make guesses about the operating system. Different OSes have different default TTL values, e.g., 64 for Linux, 128 for Windows. Cisco devices use a TTL of 255, but this has not been tested. It is still supported though. 
+
+**Window Size Examination**: The TCP window size can also provide clues about the OS. For instance, certain OSes use specific window sizes. BSD-like systems often use a window size of 65535. macOS consistently uses a window size of 65535, in line with its BSD-based network stack. To separate macOS and other BSD-like systems from Linux, window size is used. There is currently no reliable way (for disco) to separate Linux from the other Unix-like OSes.
+
+**MAC Address Pattern Matching**: The MAC address of the target reveals the manufacturer of the network card, which can reveal information about the OS. Because newer Apple devices use their own network cards, disco uses a check for Apple MAC address prefixes (e.g., `10:BD:3A`) to identify macOS systems. This enables disco to distinguish macOS from other BSD-like systems. This also means that Macs have the most accurate fingerprinting, as MAC fingerprinting has not been implemented for other manufacturers.
+
+### Network Diagnostics
+The fingerprinting allows for calculations of the estimated number of hops between the scanning host and the target, based on the identified OS's default TTL value. This information could be useful for network diagnostics and understanding the network topology. The MAC address is also printed without Vendor lookup (except Apple), allowing users to gain more information about the target device with a quick online search.
