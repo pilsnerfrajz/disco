@@ -227,6 +227,9 @@ int arp(char *address)
 		return PCAP_LOOP;
 	}
 
+	/* Cancel any pending alarm before restoring handler */
+	alarm(0);
+
 	signal(SIGALRM, SIG_DFL);
 
 	pcap_close(handle);

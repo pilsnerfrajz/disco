@@ -15,7 +15,7 @@
 #define RETRIES 3
 #define MSG_BUF_SIZE 2048
 #define DISCOVERY_PORT_COUNT 3
-#define MAC_PRINT_BUF_SIZE (strlen("[+] MAC address: 00:xx:de:ad:be:ef") + 1)
+#define MAC_PRINT_BUF_SIZE (sizeof("[+] MAC address: 00:xx:de:ad:be:ef\n"))
 
 static unsigned short discovery_ports[DISCOVERY_PORT_COUNT] = {22, 80, 443};
 
