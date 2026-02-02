@@ -183,6 +183,9 @@ int arp(char *address)
 		return PCAP_OPEN;
 	}
 
+	/* Free memory */
+	free(if_name);
+
 	if (pcap_inject(handle, &arp_frame, sizeof(arp_frame)) < 0)
 	{
 		pcap_close(handle);
