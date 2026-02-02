@@ -210,6 +210,9 @@ int arp(char *address)
 		return PCAP_FILTER;
 	}
 
+	/* Free filter malloc */
+	pcap_freecode(&filter);
+
 	struct callback_data c_data = {0};
 	memcpy(&c_data.arp_frame, &arp_frame, sizeof(c_data.arp_frame));
 	c_data.reply_found = 0;
