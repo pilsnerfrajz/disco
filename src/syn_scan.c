@@ -732,6 +732,7 @@ static int pcap_filter_setup(char *address, struct src_info src_info)
 		return PCAP_FILTER;
 	}
 
+	/* Free filter malloc */
 	pcap_freecode(&filter);
 
 	return 0;
