@@ -71,7 +71,7 @@ disco - network utility for host discovery and port enumeration
 author: pilsnerfrajz
 
 usage: disco target [-h] [-p ports] [-o] [-n] [-P] [-a] [-S]
-                    [-w file] [-f]
+					[-w file] [-f]
 options:
   target          : host to scan (IP address or domain)
   -p, --ports     : ports to scan, e.g., -p 1-1024 or -p 21,22,80
@@ -100,6 +100,8 @@ sudo ./bin/disco 127.0.0.1 -n -p 1-65535
 ```
 
 ## Testing
+
+### Integration Tests
 The program includes comprehensive **integration tests** that validate real network functionality. Run with `make test` from the project root to test:
 - ARP 
 	- Requests to LAN devices 
@@ -113,11 +115,14 @@ The program includes comprehensive **integration tests** that validate real netw
 	- Port scan of IPv4/IPv6 localhost
 	- Port scan of LAN device
 	- Port scan of IPv4/IPv6 external hosts
-
+- OS Fingerprinting
+	- Windows, Linux and BSD-like (e.g. macOS) systems
+- Memory leaks (see Section [Memory Leak Tests](#memory-leak-tests))
 
 Some tests may fail due to hardcoded IP addresses and port numbers not accessible or open on the targets in your network. Test cases that involve localhost or domains should still pass however. 
 
-
+### Memory Leak Tests
+Memory leak tests are included to ensure proper memory management. These tests utilize the `AddressSanitizer` available in `clang`. Run with `make leaks` from the project root to execute leak tests with various argument combinations. Each test will report if any memory leaks were detected.
 
 ## Technical Details
 Disco is implemented in C using `libpcap` for frame injection and packet filtering. This section describes the implementation of ARP, ping and port scanning in more detail for those interested.
