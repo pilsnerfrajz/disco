@@ -113,13 +113,11 @@ The program includes comprehensive **integration tests** that validate real netw
 	- Port scan of IPv4/IPv6 localhost
 	- Port scan of LAN device
 	- Port scan of IPv4/IPv6 external hosts
-- CLI
-	- Setting all available CLI arguments
-	- Printing of usage message with `-h` flag
+
 
 Some tests may fail due to hardcoded IP addresses and port numbers not accessible or open on the targets in your network. Test cases that involve localhost or domains should still pass however. 
 
-The future plan is to implement these tests in a CI pipeline using Docker to ensure working features, regardless of device and network configurations. 
+
 
 ## Technical Details
 Disco is implemented in C using `libpcap` for frame injection and packet filtering. This section describes the implementation of ARP, ping and port scanning in more detail for those interested.
