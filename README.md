@@ -15,6 +15,8 @@ Disco is a cross-platform network utility available on Linux and macOS. It suppo
 - [Usage](#usage)
    - [Examples](#examples)
 - [Testing](#testing)
+   - [Integration Tests](#integration-tests)
+   - [Memory Leak Tests](#memory-leak-tests)
 - [Technical Details](#technical-details)
    - [Address Resolution Protocol (ARP)](#address-resolution-protocol-arp)
    - [ICMP Echo Request (Ping)](#icmp-echo-request-ping)
