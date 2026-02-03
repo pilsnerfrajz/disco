@@ -74,13 +74,16 @@ struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 		return NULL;
 	}
 
-	res->ai_addr = malloc(sizeof(struct addrinfo));
+	/* Clear struct in case there is garbage */
+	memset(res, 0, sizeof(struct addrinfo));
+
+	res->ai_addr = malloc(temp->ai_addrlen);
 	if (res->ai_addr == NULL)
 	{
 		freeaddrinfo(dst_info);
 		return NULL;
 	}
-	memcpy(res->ai_addr, temp->ai_addr, sizeof(struct addrinfo));
+	memcpy(res->ai_addr, temp->ai_addr, temp->ai_addrlen);
 	res->ai_family = temp->ai_family;
 	res->ai_addrlen = temp->ai_addrlen;
 

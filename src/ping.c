@@ -283,8 +283,7 @@ int ping(char *address, int tries)
 			free(reply_hdr);
 		}
 	}
-
-	if (dst->ai_family == AF_INET6)
+	else if (dst->ai_family == AF_INET6)
 	{
 		for (int attempt = 0; attempt < tries; attempt++)
 		{

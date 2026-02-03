@@ -183,6 +183,9 @@ int arp(char *address)
 		return PCAP_OPEN;
 	}
 
+	/* Free memory */
+	free(if_name);
+
 	if (pcap_inject(handle, &arp_frame, sizeof(arp_frame)) < 0)
 	{
 		pcap_close(handle);
@@ -209,6 +212,9 @@ int arp(char *address)
 		pcap_close(handle);
 		return PCAP_FILTER;
 	}
+
+	/* Free filter malloc */
+	pcap_freecode(&filter);
 
 	struct callback_data c_data = {0};
 	memcpy(&c_data.arp_frame, &arp_frame, sizeof(c_data.arp_frame));
