@@ -10,6 +10,7 @@ TEST_OBJS := $(notdir $(patsubst %.c,%.o, $(wildcard $(TESTS_DIR)/*.c)))
 
 CC := gcc
 CFLAGS := -Wall -Wextra -pedantic -Werror
+CFLAGSTEST := -Wall -Wextra -pedantic -Werror -fsanitize=address
 LDFLAGS := -lpcap -lpthread
 
 $(NAME): dir $(OBJS)
@@ -19,13 +20,13 @@ $(OBJS):
 	@$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ -c $(SRC_DIR)/$*.c
 
 test: dir $(TEST_OBJS) $(OBJS)
-	@$(CC) $(CFLAGS) -o $(TESTS_DIR)/$(BIN_DIR)/run_all_tests \
+	@$(CC) $(CFLAGSTEST) -o $(TESTS_DIR)/$(BIN_DIR)/run_all_tests \
 	$(patsubst %,$(BUILD_DIR)/%, $(filter-out main.o, $(OBJS))) \
 	$(patsubst %,$(TESTS_DIR)/$(BUILD_DIR)/%, $(TEST_OBJS)) $(LDFLAGS)
 	@sudo $(TESTS_DIR)/$(BIN_DIR)/run_all_tests
 
 $(TEST_OBJS):
-	@$(CC) $(CFLAGS) -o $(TESTS_DIR)/$(BUILD_DIR)/$@ -c $(TESTS_DIR)/$*.c
+	@$(CC) $(CFLAGSTEST) -o $(TESTS_DIR)/$(BUILD_DIR)/$@ -c $(TESTS_DIR)/$*.c
 
 dir:
 	@mkdir -p $(BIN_DIR) $(BUILD_DIR) $(TESTS_DIR)/$(BIN_DIR) \
