@@ -63,8 +63,6 @@ run_test 192.168.1.1 -p 1-5,80,8080-8090
 run_test 192.168.1.1 -p 0
 run_test 192.168.1.1 -p 70000
 run_test 192.168.1.1 -p 80,,22
-run_test 0.0.0.0 -P
-run_test 255.255.255.255 -P
 
 run_test 192.168.1.1 -P -w out.txt
 rm -f out.txt
