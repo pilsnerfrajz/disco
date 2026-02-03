@@ -10,7 +10,7 @@ TEST_OBJS := $(notdir $(patsubst %.c,%.o, $(wildcard $(TESTS_DIR)/*.c)))
 
 CC := gcc
 CFLAGS := -Wall -Wextra -pedantic -Werror
-CFLAGSTEST := -Wall -Wextra -pedantic -Werror -fsanitize=address
+CFLAGSTEST := -Wall -Wextra -pedantic -Werror -fsanitize=address -g
 LDFLAGS := -lpcap -lpthread
 
 $(NAME): dir $(OBJS)
@@ -24,9 +24,17 @@ test: dir $(TEST_OBJS) $(OBJS)
 	$(patsubst %,$(BUILD_DIR)/%, $(filter-out main.o, $(OBJS))) \
 	$(patsubst %,$(TESTS_DIR)/$(BUILD_DIR)/%, $(TEST_OBJS)) $(LDFLAGS)
 	@sudo $(TESTS_DIR)/$(BIN_DIR)/run_all_tests
-
+	@echo "-- SEPARATE LEAK TESTS --"
+	@$(MAKE) leaks
+	
 $(TEST_OBJS):
 	@$(CC) $(CFLAGSTEST) -o $(TESTS_DIR)/$(BUILD_DIR)/$@ -c $(TESTS_DIR)/$*.c
+
+leaks: CFLAGS := $(CFLAGSTEST)
+leaks: clean dir $(NAME)
+	@sudo chmod +x $(TESTS_DIR)/leaks.sh
+	@sudo $(TESTS_DIR)/leaks.sh
+	@$(MAKE) clean
 
 dir:
 	@mkdir -p $(BIN_DIR) $(BUILD_DIR) $(TESTS_DIR)/$(BIN_DIR) \
@@ -36,4 +44,4 @@ clean:
 	@rm -rf $(BUILD_DIR) $(BIN_DIR) $(TESTS_DIR)/$(BIN_DIR) \
 	$(TESTS_DIR)/$(BUILD_DIR)
 
-.PHONY: dir test clean
+.PHONY: dir test clean leaks
