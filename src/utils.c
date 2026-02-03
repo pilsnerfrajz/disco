@@ -74,6 +74,9 @@ struct addrinfo *get_dst_addr_struct(char *dst, int sock_type)
 		return NULL;
 	}
 
+	/* Clear struct in case there is garbage */
+	memset(res, 0, sizeof(struct addrinfo));
+
 	res->ai_addr = malloc(sizeof(struct addrinfo));
 	if (res->ai_addr == NULL)
 	{
