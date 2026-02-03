@@ -24,7 +24,7 @@ test: dir $(TEST_OBJS) $(OBJS)
 	$(patsubst %,$(BUILD_DIR)/%, $(filter-out main.o, $(OBJS))) \
 	$(patsubst %,$(TESTS_DIR)/$(BUILD_DIR)/%, $(TEST_OBJS)) $(LDFLAGS)
 	@sudo $(TESTS_DIR)/$(BIN_DIR)/run_all_tests
-	@echo "-- SEPARATE LEAK TESTS --"
+	@echo "\n-- SEPARATE LEAK TESTS --"
 	@$(MAKE) leaks
 	
 $(TEST_OBJS):
