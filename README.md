@@ -19,6 +19,8 @@ Disco is a cross-platform network utility available on Linux and macOS. It suppo
    - [Address Resolution Protocol (ARP)](#address-resolution-protocol-arp)
    - [ICMP Echo Request (Ping)](#icmp-echo-request-ping)
    - [TCP SYN Scanning](#tcp-syn-scanning)
+   - [OS Fingerprinting](#os-fingerprinting)
+   - [Network Diagnostics](#network-diagnostics)
 
 ## Installation
 1. Clone the repository
