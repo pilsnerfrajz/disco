@@ -32,6 +32,10 @@ int arp_possible_test(char *address)
 		free(if_name);
 		return ret;
 	}
+
+	free(if_name);
+	free_dst_addr_struct(dst_info);
+
 	return ret;
 }
 
