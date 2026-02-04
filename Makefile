@@ -20,6 +20,7 @@ $(OBJS):
 	@$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ -c $(SRC_DIR)/$*.c
 
 test: dir $(TEST_OBJS) $(OBJS)
+	@ASAN_OPTIONS=leaks=1
 	@$(CC) $(CFLAGSTEST) -o $(TESTS_DIR)/$(BIN_DIR)/run_all_tests \
 	$(patsubst %,$(BUILD_DIR)/%, $(filter-out main.o, $(OBJS))) \
 	$(patsubst %,$(TESTS_DIR)/$(BUILD_DIR)/%, $(TEST_OBJS)) $(LDFLAGS)
@@ -32,6 +33,7 @@ $(TEST_OBJS):
 
 leaks: CFLAGS := $(CFLAGSTEST)
 leaks: clean dir $(NAME)
+	@ASAN_OPTIONS=leaks=1
 	@sudo chmod +x $(TESTS_DIR)/leaks.sh
 	@sudo $(TESTS_DIR)/leaks.sh
 	@$(MAKE) clean
