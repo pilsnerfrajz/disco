@@ -13,13 +13,16 @@ CFLAGS := -Wall -Wextra -pedantic -Werror
 CFLAGSTEST := -Wall -Wextra -pedantic -Werror -fsanitize=address -g
 LDFLAGS := -lpcap -lpthread
 
+UNAME := $(shell uname -o)
+
 $(NAME): dir $(OBJS)
 	$(CC) $(CFLAGS) -o $(BIN_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%, $(OBJS)) $(LDFLAGS)
 
 $(OBJS):
 	@$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ -c $(SRC_DIR)/$*.c
 
-test: dir $(TEST_OBJS) $(OBJS)
+test: dir check_os $(TEST_OBJS) $(OBJS)
+	@ASAN_OPTIONS=leaks=1
 	@$(CC) $(CFLAGSTEST) -o $(TESTS_DIR)/$(BIN_DIR)/run_all_tests \
 	$(patsubst %,$(BUILD_DIR)/%, $(filter-out main.o, $(OBJS))) \
 	$(patsubst %,$(TESTS_DIR)/$(BUILD_DIR)/%, $(TEST_OBJS)) $(LDFLAGS)
@@ -31,10 +34,16 @@ $(TEST_OBJS):
 	@$(CC) $(CFLAGSTEST) -o $(TESTS_DIR)/$(BUILD_DIR)/$@ -c $(TESTS_DIR)/$*.c
 
 leaks: CFLAGS := $(CFLAGSTEST)
-leaks: clean dir $(NAME)
+leaks: clean dir check_os $(NAME)
+	@ASAN_OPTIONS=leaks=1
 	@sudo chmod +x $(TESTS_DIR)/leaks.sh
 	@sudo $(TESTS_DIR)/leaks.sh
 	@$(MAKE) clean
+
+check_os:
+ifeq ($(UNAME), Darwin)
+	@echo "*** LeakSanitizer is not fully supported on macOS. Leak checks may not work ***"
+endif
 
 dir:
 	@mkdir -p $(BIN_DIR) $(BUILD_DIR) $(TESTS_DIR)/$(BIN_DIR) \
@@ -44,4 +53,4 @@ clean:
 	@rm -rf $(BUILD_DIR) $(BIN_DIR) $(TESTS_DIR)/$(BIN_DIR) \
 	$(TESTS_DIR)/$(BUILD_DIR)
 
-.PHONY: dir test clean leaks
+.PHONY: dir test clean leaks check_os

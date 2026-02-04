@@ -8,11 +8,11 @@ run_test() {
 	# run binary with argument
 	$BIN "$@" > /dev/null 2> "$ERR_LOG"
 	if grep -q "Sanitizer" "$ERR_LOG"; then
-		echo "❌ Leak test with arguments '$@': failed"
+		echo "❌ Memory test with arguments '$@': failed"
 		cat "$ERR_LOG"
 		exit 1
 	else
-		echo "✅ Leak test with arguments '$@': passed"
+		echo "✅ Memory test with arguments '$@': passed"
 	fi
 	rm -f "$ERR_LOG"
 }

@@ -273,11 +273,11 @@ int compare_subnets(in_addr_t src, in_addr_t dst, in_addr_t mask)
  * @brief Backup function when `getifaddrs` fails to fetch the netmask.
  *
  * @param iface The name of the interface to target.
- * @param mask Pointer to a `sockaddr_in *` to store the netmask in.
+ * @param mask Address of a `sockaddr_in` to store the netmask in.
  * @return int Returns 1 if the netmask is retrieved successfully. Returns
  * 0 if an error occurs.
  */
-int get_mask_ioctl(const char *iface, struct sockaddr_in **mask)
+int get_mask_ioctl(const char *iface, struct sockaddr_in *mask)
 {
 	int fd;
 	struct ifreq ifr;
@@ -293,7 +293,7 @@ int get_mask_ioctl(const char *iface, struct sockaddr_in **mask)
 
 	if (ioctl(fd, SIOCGIFNETMASK, &ifr) == 0)
 	{
-		*mask = (struct sockaddr_in *)&ifr.ifr_addr;
+		memcpy(mask, &ifr.ifr_addr, sizeof(struct sockaddr_in));
 		close(fd);
 		return 1;
 	}
@@ -423,10 +423,10 @@ int get_arp_details(struct sockaddr_in *dst, u_int8_t *src_ip_buf,
 		else if (!interfaces[iface_id].has_mask)
 		{
 			/* Try ioctl as backup */
-			struct sockaddr_in *mask_ptr;
-			if (get_mask_ioctl(interfaces[iface_id].name, &mask_ptr))
+			struct sockaddr_in mask;
+			if (get_mask_ioctl(interfaces[iface_id].name, &mask))
 			{
-				interfaces[iface_id].mask = *mask_ptr;
+				interfaces[iface_id].mask = mask;
 				interfaces[iface_id].has_mask = 1;
 			}
 		}
